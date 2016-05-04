@@ -1,0 +1,10 @@
+[package]
+
+name = "mail-todo"
+version = "0.0.1"
+authors = [ "Miquel Ruiz <mruiz@cpan.org>" ]
+
+[dependencies]
+
+imap = "*"
+openssl = "*"
