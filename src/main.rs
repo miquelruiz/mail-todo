@@ -6,10 +6,11 @@ use openssl::ssl::{SslContext, SslMethod};
 use imap::client::{IMAPStream, IMAPMailbox};
 use regex::Regex;
 
+use std::error::Error;
 use std::io;
 use std::io::prelude::*;
 use std::fs::File;
-use std::error::Error;
+use std::path::Path;
 
 const MUTT: &'static str = ".mutt";
 const CONF: &'static str = "miquelruiz.net";
@@ -38,6 +39,14 @@ fn get_credentials() -> Creds {
     path.push(CONF);
     let path = path.as_path();
 
+    let content = read_config_file(path);
+    let user = capture_info(r"set imap_user=(\w*)", &content);
+    let pass = capture_info(r"set imap_pass=(\w*)", &content);
+
+    Creds { user: user, pass: pass }
+}
+
+fn read_config_file(path: &Path) -> String {
     // if it's not mutable, read_to_string crashes
     let mut file = match File::open(&path) {
         Err(why) => panic!("Can't open {}: {}",
@@ -49,27 +58,21 @@ fn get_credentials() -> Creds {
     //let mut file = try!(File::open(&path));
 
     let mut content = String::new();
-    match file.read_to_string(&mut content) {
-        Err(why) => panic!("Can't read {}: {}",
-            path.display(), Error::description(&why)),
-        Ok(size) => println!("Size: {}\nContent: {}", size, content),
+    if let Err(why) = file.read_to_string(&mut content) {
+        panic!("Can't read {}: {}", path.display(), Error::description(&why))
     };
 
-    let re = Regex::new(r"set imap_user=(\w*)").unwrap();
-    let caps = re.captures(&content).unwrap();
-        let user = match caps.at(1) {
-        Some(user) => user,
-        None => panic!("Couldn't find the user"),
-    };
+    content
+}
 
-    let re = Regex::new(r"set imap_pass=(\w*)").unwrap();
-    let caps = re.captures(&content).unwrap();
-    let pass = match caps.at(1) {
-        Some(user) => user,
-        None => panic!("Couldn't find the user"),
+fn capture_info(pattern: &str, text: &str) -> String {
+    let re = Regex::new(pattern).unwrap();
+    let caps = re.captures(text).unwrap();
+    let info = match caps.at(1) {
+        Some(info) => info,
+        None => panic!("Couldn't match the regexp {} against {}", re, text),
     };
-
-    Creds { user: user.to_string(), pass: pass.to_string() }
+    info.to_string()
 }
 
 fn count_tasks(creds: Creds) -> u32 {
