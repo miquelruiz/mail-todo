@@ -7,7 +7,6 @@ use imap::client::{IMAPStream, IMAPMailbox};
 use regex::Regex;
 
 use std::error::Error;
-use std::io;
 use std::io::prelude::*;
 use std::fs::File;
 use std::path::Path;
@@ -19,7 +18,7 @@ fn main() {
     println!("This is mail-todo");
 //    let tasks = count_tasks(get_credentials());
     let creds = get_credentials();
-    let tasks = 0;
+    let tasks = count_tasks(creds);
     println!("{} tasks pending for today", tasks);
 }
 
@@ -94,14 +93,14 @@ fn count_tasks(creds: Creds) -> u32 {
         Err(e) => panic!("Error selecting INBOX: {}", e)
     };
 
-    match imap_socket.fetch("1", "body[header]") {
-        Ok(lines) => {
-            for line in lines.iter() {
-                print!("{}", line)
-            }
-        },
-        Err(e) => panic!("Error fetching mail: {}", e),
-    }
+//    match imap_socket.fetch("1", "body[header]") {
+//        Ok(lines) => {
+//            for line in lines.iter() {
+//                print!("{}", line)
+//            }
+//        },
+//        Err(e) => panic!("Error fetching mail: {}", e),
+//    }
 
     if let Err(e) = imap_socket.logout() {
         println!("Error {}", e)
