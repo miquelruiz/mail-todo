@@ -8,3 +8,4 @@ authors = [ "Miquel Ruiz <mruiz@cpan.org>" ]
 
 imap = "*"
 openssl = "*"
+regex = "*"

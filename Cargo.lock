@@ -4,6 +4,7 @@ version = "0.0.1"
 dependencies = [
  "imap 0.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "openssl 0.7.10 (registry+https://github.com/rust-lang/crates.io-index)",
+ "regex 0.1.69 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
