@@ -31,12 +31,11 @@ fn get_credentials() -> Creds {
         None => panic!("Can't get home_dir"),
     };
 
-    // Build path to config file and make immutable
+    // Build path to config file
     path.push(MUTT);
     path.push(CONF);
-    let path = path.as_path();
 
-    let content = read_config_file(path);
+    let content = read_config_file(path.as_path());
     let user = extract_login(r"set imap_user=(\w*)", &content);
     let pass = extract_login(r"set imap_pass=(\w*)", &content);
 
