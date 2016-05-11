@@ -39,8 +39,8 @@ fn get_credentials() -> Creds {
     let path = path.as_path();
 
     let content = read_config_file(path);
-    let user = capture_info(r"set imap_user=(\w*)", &content);
-    let pass = capture_info(r"set imap_pass=(\w*)", &content);
+    let user = extract_login(r"set imap_user=(\w*)", &content);
+    let pass = extract_login(r"set imap_pass=(\w*)", &content);
 
     Creds { user: user, pass: pass }
 }
@@ -64,7 +64,7 @@ fn read_config_file(path: &Path) -> String {
     content
 }
 
-fn capture_info(pattern: &str, text: &str) -> String {
+fn extract_login(pattern: &str, text: &str) -> String {
     let re = Regex::new(pattern).unwrap();
     let caps = re.captures(text).unwrap();
     let info = match caps.at(1) {
