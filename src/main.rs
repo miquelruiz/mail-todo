@@ -15,8 +15,6 @@ const MUTT: &'static str = ".mutt";
 const CONF: &'static str = "miquelruiz.net";
 
 fn main() {
-    println!("This is mail-todo");
-//    let tasks = count_tasks(get_credentials());
     let creds = get_credentials();
     let tasks = count_tasks(creds);
     println!("{} tasks pending for today", tasks);
