@@ -12,20 +12,29 @@ use std::error::Error;
 use std::io::prelude::*;
 use std::fs::File;
 use std::path::Path;
+use std::thread;
+use std::time::Duration;
 
 const MUTT: &'static str = ".mutt";
 const CONF: &'static str = "miquelruiz.net";
 
 fn main() {
+    let child = thread::spawn(move || {run()});
+    let res = child.join();
+}
+
+fn run() {
     let creds = get_credentials();
-    let tasks = count_tasks(creds);
-    println!("{} tasks pending for today", tasks);
-    Notification::new()
-        .summary("Notifier")
-        .body(&format!("{} tasks pending", tasks))
-        .icon("task-due")
-        .timeout(6000)
-        .show().unwrap();
+    loop {
+        let tasks = count_tasks(&creds);
+        Notification::new()
+            .summary("Notifier")
+            .body(&format!("{} tasks pending", tasks))
+            .icon("task-due")
+            .timeout(5000)
+            .show().unwrap();
+        std::thread::sleep(Duration::new(10, 0));
+    }
 }
 
 struct Creds {
@@ -79,7 +88,7 @@ fn extract_login(pattern: &str, text: &str) -> String {
     info.to_string()
 }
 
-fn count_tasks(creds: Creds) -> u32 {
+fn count_tasks(creds: &Creds) -> u32 {
     let mut imap_socket = match IMAPStream::connect(
         "mail.miquelruiz.net",
         993,
