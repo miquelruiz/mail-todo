@@ -1,11 +1,13 @@
 extern crate imap;
-extern crate notify_rust;
-extern crate openssl;
-extern crate regex;
-
-use openssl::ssl::{SslContext, SslMethod};
-use notify_rust::Notification;
 use imap::client::IMAPStream;
+
+extern crate notify_rust;
+use notify_rust::Notification;
+
+extern crate openssl;
+use openssl::ssl::{SslContext, SslMethod};
+
+extern crate regex;
 use regex::Regex;
 
 use std::error::Error;
