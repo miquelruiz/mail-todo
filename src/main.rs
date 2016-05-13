@@ -1,9 +1,11 @@
 extern crate imap;
+extern crate notify_rust;
 extern crate openssl;
 extern crate regex;
 
 use openssl::ssl::{SslContext, SslMethod};
-use imap::client::{IMAPStream, IMAPMailbox};
+use notify_rust::Notification;
+use imap::client::IMAPStream;
 use regex::Regex;
 
 use std::error::Error;
@@ -18,6 +20,12 @@ fn main() {
     let creds = get_credentials();
     let tasks = count_tasks(creds);
     println!("{} tasks pending for today", tasks);
+    Notification::new()
+        .summary("Notifier")
+        .body(&format!("{} tasks pending", tasks))
+        .icon("task-due")
+        .timeout(6000)
+        .show().unwrap();
 }
 
 struct Creds {
@@ -89,15 +97,6 @@ fn count_tasks(creds: Creds) -> u32 {
         Ok(m)  => m,
         Err(e) => panic!("Error selecting INBOX: {}", e)
     };
-
-//    match imap_socket.fetch("1", "body[header]") {
-//        Ok(lines) => {
-//            for line in lines.iter() {
-//                print!("{}", line)
-//            }
-//        },
-//        Err(e) => panic!("Error fetching mail: {}", e),
-//    }
 
     if let Err(e) = imap_socket.logout() {
         println!("Error {}", e)
