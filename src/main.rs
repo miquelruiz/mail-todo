@@ -27,8 +27,9 @@ fn main() {
 
 fn run() {
     let creds = get_credentials();
+    let mut imap = get_connection(&creds);
     loop {
-        let tasks = count_tasks(&creds);
+        let tasks = count_tasks(&mut imap);
         Notification::new()
             .summary("Notifier")
             .body(&format!("{} tasks pending", tasks))
@@ -90,7 +91,7 @@ fn extract_login(pattern: &str, text: &str) -> String {
     info.to_string()
 }
 
-fn count_tasks(creds: &Creds) -> u32 {
+fn get_connection(creds: &Creds) -> IMAPStream {
     let mut imap_socket = match IMAPStream::connect(
         "mail.miquelruiz.net",
         993,
@@ -104,14 +105,22 @@ fn count_tasks(creds: &Creds) -> u32 {
         panic!("Error: {}", e)
     };
 
+    imap_socket
+}
+
+fn count_tasks(imap_socket: &mut IMAPStream) -> u32 {
     let mbox = match imap_socket.select("ToDo") {
         Ok(m)  => m,
         Err(e) => panic!("Error selecting INBOX: {}", e)
     };
 
+    mbox.exists
+}
+
+fn logout(imap_socket: &mut IMAPStream) {
     if let Err(e) = imap_socket.logout() {
         println!("Error {}", e)
     };
-
-    mbox.exists
 }
+
+
