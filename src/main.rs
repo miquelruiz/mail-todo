@@ -30,6 +30,7 @@ fn run() {
     let mut imap = get_connection(&creds);
     loop {
         let tasks = count_tasks(&mut imap);
+        println!("{:?} pending tasks", tasks);
         Notification::new()
             .summary("Notifier")
             .body(&format!("{} tasks pending", tasks))
@@ -117,6 +118,7 @@ fn count_tasks(imap_socket: &mut IMAPStream) -> u32 {
     mbox.exists
 }
 
+#[allow(dead_code)]
 fn logout(imap_socket: &mut IMAPStream) {
     if let Err(e) = imap_socket.logout() {
         println!("Error {}", e)
