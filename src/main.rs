@@ -28,15 +28,13 @@ fn main() {
 fn run() {
     let creds = get_credentials();
     let mut imap = get_connection(&creds);
+    let mut tasks = 0;
     loop {
-        let tasks = count_tasks(&mut imap);
-        println!("{:?} pending tasks", tasks);
-        Notification::new()
-            .summary("Notifier")
-            .body(&format!("{} tasks pending", tasks))
-            .icon("task-due")
-            .timeout(5000)
-            .show().unwrap();
+        let new_tasks = count_tasks(&mut imap);
+        if new_tasks != tasks {
+            tasks = new_tasks;
+            notify(tasks);
+        }
         std::thread::sleep(Duration::new(10, 0));
     }
 }
@@ -110,11 +108,12 @@ fn get_connection(creds: &Creds) -> IMAPStream {
 }
 
 fn count_tasks(imap_socket: &mut IMAPStream) -> u32 {
+    println!("Counting");
     let mbox = match imap_socket.select("ToDo") {
         Ok(m)  => m,
         Err(e) => panic!("Error selecting INBOX: {}", e)
     };
-
+    println!("Found {:?}", mbox.exists);
     mbox.exists
 }
 
@@ -125,4 +124,12 @@ fn logout(imap_socket: &mut IMAPStream) {
     };
 }
 
-
+fn notify(tasks: u32) {
+    println!("{:?} pending tasks", tasks);
+    Notification::new()
+        .summary("Notifier")
+        .body(&format!("{} tasks pending", tasks))
+        .icon("task-due")
+        .timeout(5000)
+        .show().unwrap();
+}
