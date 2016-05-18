@@ -22,7 +22,7 @@ const CONF: &'static str = "miquelruiz.net";
 
 fn main() {
     let child = thread::spawn(move || {run()});
-    let res = child.join();
+    let _ = child.join();
 }
 
 fn run() {
