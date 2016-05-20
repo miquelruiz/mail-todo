@@ -1,3 +1,7 @@
+extern crate gtk;
+use gtk::prelude::*;
+use gtk::StatusIcon;
+
 extern crate imap;
 use imap::client::IMAPStream;
 
@@ -19,9 +23,20 @@ use std::time::Duration;
 
 const MUTT: &'static str = ".mutt";
 const CONF: &'static str = "miquelruiz.net";
+const ICON: &'static str = "task-due";
+const NAME: &'static str = "Mail-todo";
+const SLEEP: u64 = 10;
 
 fn main() {
+    if gtk::init().is_err() {
+        panic!("Failed to initialize GTK");
+    }
+
     let child = thread::spawn(move || {run()});
+    let icon = StatusIcon::new_from_icon_name(ICON);
+    icon.set_title(NAME);
+
+    gtk::main();
     let _ = child.join();
 }
 
@@ -35,7 +50,7 @@ fn run() {
             tasks = new_tasks;
             notify(tasks);
         }
-        std::thread::sleep(Duration::new(10, 0));
+        std::thread::sleep(Duration::new(SLEEP, 0));
     }
 }
 
