@@ -1,6 +1,6 @@
 extern crate gtk;
 use gtk::prelude::*;
-use gtk::StatusIcon;
+use gtk::{Menu, MenuItem, StatusIcon};
 
 extern crate imap;
 use imap::client::IMAPStream;
@@ -33,8 +33,20 @@ fn main() {
     }
 
     let child = thread::spawn(move || {run()});
+
     let icon = StatusIcon::new_from_icon_name(ICON);
     icon.set_title(NAME);
+
+    let menu = Menu::new();
+    let about = MenuItem::new_with_label("About...");
+    menu.attach(&about, 0, 1, 0, 1);
+
+    icon.connect_popup_menu(move |ref i, x, y| {
+        println!("Dog science: {} {}", x, y);
+        // This seems unimplemented
+        // https://github.com/gtk-rs/gtk/blob/d9295b9c776c1b15ec4db0a4025838cb2f92595a/src/auto/menu.rs#L113
+        //menu.popup();
+    });
 
     gtk::main();
     let _ = child.join();
