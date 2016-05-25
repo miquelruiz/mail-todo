@@ -69,6 +69,8 @@ fn run() {
 struct Creds {
     user: String,
     pass: String,
+    host: String,
+    port: u16,
 }
 
 fn get_credentials() -> Creds {
@@ -84,8 +86,10 @@ fn get_credentials() -> Creds {
     let content = read_config_file(path.as_path());
     let user = extract_login(r"set imap_user=(\w*)", &content);
     let pass = extract_login(r"set imap_pass=(\w*)", &content);
+    let host = extract_login(r"set folder=imaps?://(.+):\d+", &content);
+    let port = extract_login(r"set folder=imaps?://.+:(\d+)", &content);
 
-    Creds { user: user, pass: pass }
+    Creds { user: user, pass: pass, host: host, port: port.parse().unwrap() }
 }
 
 fn read_config_file(path: &Path) -> String {
@@ -96,9 +100,6 @@ fn read_config_file(path: &Path) -> String {
         Ok(file) => file,
     };
 
-    // Alternatively if this function returned Result<T, E>
-    //let mut file = try!(File::open(&path));
-
     let mut content = String::new();
     if let Err(why) = file.read_to_string(&mut content) {
         panic!("Can't read {}: {}", path.display(), Error::description(&why))
@@ -108,8 +109,14 @@ fn read_config_file(path: &Path) -> String {
 }
 
 fn extract_login(pattern: &str, text: &str) -> String {
-    let re = Regex::new(pattern).unwrap();
-    let caps = re.captures(text).unwrap();
+    let re = match Regex::new(pattern) {
+        Ok(re) => re,
+        Err(e) => panic!("Failed to build regex: {}", e),
+    };
+    let caps = match re.captures(text) {
+        Some(c) => c,
+        None    => panic!("Failed to match regex: {}", pattern),
+    };
     let info = match caps.at(1) {
         Some(info) => info,
         None => panic!("Couldn't match the regexp {} against {}", re, text),
@@ -119,8 +126,8 @@ fn extract_login(pattern: &str, text: &str) -> String {
 
 fn get_connection(creds: &Creds) -> IMAPStream {
     let mut imap_socket = match IMAPStream::connect(
-        "mail.miquelruiz.net",
-        993,
+        creds.host.clone(),
+        creds.port,
         Some(SslContext::new(SslMethod::Sslv23).unwrap())
     ) {
         Ok(s)  => s,
