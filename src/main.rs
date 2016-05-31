@@ -32,7 +32,8 @@ fn main() {
         panic!("Failed to initialize GTK");
     }
 
-    let child = thread::spawn(move || {run()});
+    let creds = get_credentials();
+    let child = thread::spawn(move || { run(creds) });
 
     let icon = StatusIcon::new_from_icon_name(ICON);
     icon.set_title(NAME);
@@ -52,8 +53,8 @@ fn main() {
     let _ = child.join();
 }
 
-fn run() {
-    let creds = get_credentials();
+fn run(creds: Creds) {
+    // let creds = get_credentials();
     let mut imap = get_connection(&creds);
     let mut tasks = 0;
     loop {
