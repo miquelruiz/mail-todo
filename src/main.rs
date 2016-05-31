@@ -33,7 +33,9 @@ fn main() {
     }
 
     let creds = get_credentials();
-    let child = thread::spawn(move || { run(creds) });
+    let child = thread::Builder::new()
+        .name("poller".to_string())
+        .spawn(move || { run(creds); }).unwrap();
 
     let icon = StatusIcon::new_from_icon_name(ICON);
     icon.set_title(NAME);
