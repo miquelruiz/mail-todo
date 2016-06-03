@@ -14,7 +14,6 @@ use openssl::ssl::{SslContext, SslMethod};
 extern crate regex;
 use regex::Regex;
 
-use std::error::Error;
 use std::io::prelude::*;
 use std::fs::File;
 use std::path::Path;
@@ -44,7 +43,7 @@ fn main() {
     let about = MenuItem::new_with_label("About...");
     menu.attach(&about, 0, 1, 0, 1);
 
-    icon.connect_popup_menu(move |ref i, x, y| {
+    icon.connect_popup_menu(move |_, x, y| {
         println!("Dog science: {} {}", x, y);
         // This seems unimplemented
         // https://github.com/gtk-rs/gtk/blob/d9295b9c776c1b15ec4db0a4025838cb2f92595a/src/auto/menu.rs#L113
@@ -86,7 +85,7 @@ fn get_credentials() -> Creds {
     path.push(MUTT);
     path.push(CONF);
 
-    let content = read_config_file(path.as_path());
+    let content = read_config_file(path.as_path()).unwrap();
     let user = extract_login(r"set imap_user=(\w*)", &content).unwrap();
     let pass = extract_login(r"set imap_pass=(\w*)", &content).unwrap();
     let host = extract_login(r"set folder=imaps?://(.+):\d+", &content).unwrap();
@@ -95,20 +94,11 @@ fn get_credentials() -> Creds {
     Creds { user: user, pass: pass, host: host, port: port.parse().unwrap() }
 }
 
-fn read_config_file(path: &Path) -> String {
-    // if it's not mutable, read_to_string crashes
-    let mut file = match File::open(&path) {
-        Err(why) => panic!("Can't open {}: {}",
-            path.display(), Error::description(&why)),
-        Ok(file) => file,
-    };
-
+fn read_config_file(path: &Path) -> Result<String, String> {
     let mut content = String::new();
-    if let Err(why) = file.read_to_string(&mut content) {
-        panic!("Can't read {}: {}", path.display(), Error::description(&why))
-    };
-
-    content
+    let mut file = try!(File::open(&path).map_err(|e| e.to_string()));
+    try!(file.read_to_string(&mut content).map_err(|e| e.to_string()));
+    Ok(content)
 }
 
 fn extract_login(pattern: &str, text: &str) -> Option<String> {
