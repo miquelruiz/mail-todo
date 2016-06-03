@@ -56,7 +56,7 @@ fn main() {
 
 fn run(creds: Creds) {
     // let creds = get_credentials();
-    let mut imap = get_connection(&creds);
+    let mut imap = get_connection(&creds).unwrap();
     let mut tasks = 0;
     loop {
         let new_tasks = count_tasks(&mut imap);
@@ -108,21 +108,17 @@ fn extract_login(pattern: &str, text: &str) -> Option<String> {
         .map(|i| i.to_string())
 }
 
-fn get_connection(creds: &Creds) -> IMAPStream {
-    let mut imap_socket = match IMAPStream::connect(
+fn get_connection(creds: &Creds) -> Result<IMAPStream, String> {
+    let mut imap_socket = try!(IMAPStream::connect(
         creds.host.clone(),
         creds.port,
-        Some(SslContext::new(SslMethod::Sslv23).unwrap())
-    ) {
-        Ok(s)  => s,
-        Err(e) => panic!("{}", e),
-    };
+        SslContext::new(SslMethod::Sslv23).ok()
+    ).map_err(|e| e.to_string()));
 
-    if let Err(e) = imap_socket.login(&creds.user, &creds.pass) {
-        panic!("Error: {}", e)
-    };
+    try!(imap_socket.login(&creds.user, &creds.pass)
+        .map_err(|e| e.to_string()));
 
-    imap_socket
+    Ok(imap_socket)
 }
 
 fn count_tasks(imap_socket: &mut IMAPStream) -> u32 {
