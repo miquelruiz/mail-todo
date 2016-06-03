@@ -87,10 +87,10 @@ fn get_credentials() -> Creds {
     path.push(CONF);
 
     let content = read_config_file(path.as_path());
-    let user = extract_login(r"set imap_user=(\w*)", &content);
-    let pass = extract_login(r"set imap_pass=(\w*)", &content);
-    let host = extract_login(r"set folder=imaps?://(.+):\d+", &content);
-    let port = extract_login(r"set folder=imaps?://.+:(\d+)", &content);
+    let user = extract_login(r"set imap_user=(\w*)", &content).unwrap();
+    let pass = extract_login(r"set imap_pass=(\w*)", &content).unwrap();
+    let host = extract_login(r"set folder=imaps?://(.+):\d+", &content).unwrap();
+    let port = extract_login(r"set folder=imaps?://.+:(\d+)", &content).unwrap();
 
     Creds { user: user, pass: pass, host: host, port: port.parse().unwrap() }
 }
@@ -111,20 +111,11 @@ fn read_config_file(path: &Path) -> String {
     content
 }
 
-fn extract_login(pattern: &str, text: &str) -> String {
-    let re = match Regex::new(pattern) {
-        Ok(re) => re,
-        Err(e) => panic!("Failed to build regex: {}", e),
-    };
-    let caps = match re.captures(text) {
-        Some(c) => c,
-        None    => panic!("Failed to match regex: {}", pattern),
-    };
-    let info = match caps.at(1) {
-        Some(info) => info,
-        None => panic!("Couldn't match the regexp {} against {}", re, text),
-    };
-    info.to_string()
+fn extract_login(pattern: &str, text: &str) -> Option<String> {
+    Regex::new(pattern).ok()
+        .and_then(|re| re.captures(text))
+        .and_then(|c| c.at(1))
+        .map(|i| i.to_string())
 }
 
 fn get_connection(creds: &Creds) -> IMAPStream {
