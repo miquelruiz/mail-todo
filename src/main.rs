@@ -31,7 +31,7 @@ fn main() {
         panic!("Failed to initialize GTK");
     }
 
-    let creds = get_credentials();
+    let creds = get_credentials().unwrap();
     let child = thread::Builder::new()
         .name("poller".to_string())
         .spawn(move || { run(creds); }).unwrap();
@@ -75,23 +75,25 @@ struct Creds {
     port: u16,
 }
 
-fn get_credentials() -> Creds {
-    let mut path = match std::env::home_dir() {
-        Some(path) => path,
-        None => panic!("Can't get home_dir"),
-    };
+fn get_credentials() -> Result<Creds, String> {
+    let mut path = try!(std::env::home_dir().ok_or("Can't get home dir"));
 
     // Build path to config file
     path.push(MUTT);
     path.push(CONF);
 
-    let content = read_config_file(path.as_path()).unwrap();
+    let content = try!(read_config_file(path.as_path()));
     let user = extract_login(r"set imap_user=(\w*)", &content).unwrap();
     let pass = extract_login(r"set imap_pass=(\w*)", &content).unwrap();
     let host = extract_login(r"set folder=imaps?://(.+):\d+", &content).unwrap();
     let port = extract_login(r"set folder=imaps?://.+:(\d+)", &content).unwrap();
 
-    Creds { user: user, pass: pass, host: host, port: port.parse().unwrap() }
+    Ok(Creds {
+        user: user,
+        pass: pass,
+        host: host,
+        port: port.parse().unwrap(),
+    })
 }
 
 fn read_config_file(path: &Path) -> Result<String, String> {
