@@ -88,12 +88,14 @@ fn get_credentials() -> Result<Creds, String> {
     let host = try!(extract_login(r"set folder=imaps?://(.+):\d+", &content));
     let port = try!(extract_login(r"set folder=imaps?://.+:(\d+)", &content));
 
-    Ok(Creds {
-        user: user,
-        pass: pass,
-        host: host,
-        port: port.parse().unwrap(),
-    })
+    port.parse()
+        .map_err(|e :std::num::ParseIntError| e.to_string())
+        .and_then(|p| Ok(Creds {
+            user: user,
+            pass: pass,
+            host: host,
+            port: p,
+        }))
 }
 
 fn read_config_file(path: &Path) -> Result<String, String> {
