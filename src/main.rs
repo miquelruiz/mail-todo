@@ -24,6 +24,7 @@ const MUTT: &'static str = ".mutt";
 const CONF: &'static str = "miquelruiz.net";
 const ICON: &'static str = "task-due";
 const NAME: &'static str = "Mail-todo";
+const MBOX: &'static str = "ToDo";
 const SLEEP: u64 = 10;
 
 fn main() {
@@ -66,15 +67,15 @@ fn run(creds: Creds) {
                 println!("Connected!");
                 let mut tasks = 0;
                 loop {
-                    let new_tasks = count_tasks(&mut imap);
-                    if new_tasks != tasks {
-                        tasks = new_tasks;
-                        notify(tasks);
+                    match count_tasks(&mut imap) {
+                        Err(e) => { println!("{}", e); break },
+                        Ok(t)  => if t != tasks { tasks = t; notify(tasks); },
                     }
                     std::thread::sleep(Duration::new(SLEEP, 0));
                 }
             },
         };
+        std::thread::sleep(Duration::new(SLEEP, 0));
     }
 }
 
@@ -135,14 +136,11 @@ fn get_connection(creds: &Creds) -> Result<IMAPStream, String> {
     Ok(imap_socket)
 }
 
-fn count_tasks(imap_socket: &mut IMAPStream) -> u32 {
-    println!("Counting");
-    let mbox = match imap_socket.select("ToDo") {
-        Ok(m)  => m,
-        Err(e) => panic!("Error selecting INBOX: {}", e)
-    };
-    println!("Found {:?}", mbox.exists);
-    mbox.exists
+fn count_tasks(imap_socket: &mut IMAPStream) -> Result<u32, String> {
+    print!("Counting... ");
+    imap_socket.select(MBOX)
+        .map_err(|e| format!("Error selecting mbox: {}", e))
+        .map(|m| { println!("found {:?}", m.exists); m.exists })
 }
 
 #[allow(dead_code)]
