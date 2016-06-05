@@ -83,10 +83,10 @@ fn get_credentials() -> Result<Creds, String> {
     path.push(CONF);
 
     let content = try!(read_config_file(path.as_path()));
-    let user = extract_login(r"set imap_user=(\w*)", &content).unwrap();
-    let pass = extract_login(r"set imap_pass=(\w*)", &content).unwrap();
-    let host = extract_login(r"set folder=imaps?://(.+):\d+", &content).unwrap();
-    let port = extract_login(r"set folder=imaps?://.+:(\d+)", &content).unwrap();
+    let user = try!(extract_login(r"set imap_user=(\w*)", &content));
+    let pass = try!(extract_login(r"set imap_pass=(\w*)", &content));
+    let host = try!(extract_login(r"set folder=imaps?://(.+):\d+", &content));
+    let port = try!(extract_login(r"set folder=imaps?://.+:(\d+)", &content));
 
     Ok(Creds {
         user: user,
@@ -103,10 +103,10 @@ fn read_config_file(path: &Path) -> Result<String, String> {
     Ok(content)
 }
 
-fn extract_login(pattern: &str, text: &str) -> Option<String> {
-    Regex::new(pattern).ok()
-        .and_then(|re| re.captures(text))
-        .and_then(|c| c.at(1))
+fn extract_login(pattern: &str, text: &str) -> Result<String, String> {
+    Regex::new(pattern).map_err(|e| e.to_string())
+        .and_then(|re| re.captures(text).ok_or(String::from("Couldn't match")))
+        .and_then(|c| c.at(1).ok_or(String::from("No captures")))
         .map(|i| i.to_string())
 }
 
