@@ -55,16 +55,26 @@ fn main() {
 }
 
 fn run(creds: Creds) {
-    // let creds = get_credentials();
-    let mut imap = get_connection(&creds).unwrap();
-    let mut tasks = 0;
     loop {
-        let new_tasks = count_tasks(&mut imap);
-        if new_tasks != tasks {
-            tasks = new_tasks;
-            notify(tasks);
-        }
-        std::thread::sleep(Duration::new(SLEEP, 0));
+        println!("Trying {}:{}... ", creds.host, creds.port);
+        match get_connection(&creds) {
+            Err(e) => {
+                println!("  {}", e);
+                std::thread::sleep(Duration::new(SLEEP, 0));
+            },
+            Ok(mut imap) => {
+                println!("Connected!");
+                let mut tasks = 0;
+                loop {
+                    let new_tasks = count_tasks(&mut imap);
+                    if new_tasks != tasks {
+                        tasks = new_tasks;
+                        notify(tasks);
+                    }
+                    std::thread::sleep(Duration::new(SLEEP, 0));
+                }
+            },
+        };
     }
 }
 
