@@ -17,6 +17,7 @@ use regex::Regex;
 use std::io::prelude::*;
 use std::fs::File;
 use std::path::Path;
+use std::sync::mpsc::{channel, Receiver};
 use std::thread;
 use std::time::Duration;
 
@@ -32,30 +33,28 @@ fn main() {
         panic!("Failed to initialize GTK");
     }
 
+    // Channel used to hide/show the status icon
+    let (tx, rx) = channel::<Message>();
+
     let creds = get_credentials().unwrap();
     let child = thread::Builder::new()
         .name("poller".to_string())
-        .spawn(move || { run(creds); }).unwrap();
+        .spawn(move || { poll_imap(creds, rx); }).unwrap();
 
     let icon = StatusIcon::new_from_icon_name(ICON);
     icon.set_title(NAME);
 
-    let menu = Menu::new();
-    let about = MenuItem::new_with_label("About...");
-    menu.attach(&about, 0, 1, 0, 1);
-
     icon.connect_popup_menu(move |_, x, y| {
         println!("Dog science: {} {}", x, y);
-        // This seems unimplemented
-        // https://github.com/gtk-rs/gtk/blob/d9295b9c776c1b15ec4db0a4025838cb2f92595a/src/auto/menu.rs#L113
-        //menu.popup();
+        let _ = tx.send(Message::Quit).unwrap();
+        gtk::main_quit();
     });
 
     gtk::main();
     let _ = child.join();
 }
 
-fn run(creds: Creds) {
+fn poll_imap(creds: Creds, rx: Receiver<Message>) {
     loop {
         println!("Trying {}:{}... ", creds.host, creds.port);
         match get_connection(&creds) {
@@ -71,12 +70,20 @@ fn run(creds: Creds) {
                         Err(e) => { println!("{}", e); break },
                         Ok(t)  => if t != tasks { tasks = t; notify(tasks); },
                     }
+                    match rx.try_recv() {
+                        Ok(Message::Quit) => return,
+                        Err(_) => (),
+                    }
                     std::thread::sleep(Duration::new(SLEEP, 0));
                 }
             },
         };
         std::thread::sleep(Duration::new(SLEEP, 0));
     }
+}
+
+enum Message {
+    Quit,
 }
 
 struct Creds {
