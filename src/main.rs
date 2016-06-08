@@ -1,6 +1,6 @@
 extern crate gtk;
 use gtk::prelude::*;
-use gtk::{Menu, MenuItem, StatusIcon};
+use gtk::{StatusIcon};
 
 extern crate imap;
 use imap::client::IMAPStream;

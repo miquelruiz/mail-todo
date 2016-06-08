@@ -3,7 +3,7 @@ name = "mail-todo"
 version = "0.0.1"
 dependencies = [
  "gtk 0.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
- "imap 0.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "imap 0.0.5 (git+https://github.com/miquelruiz/rust-imap.git)",
  "notify-rust 3.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "openssl 0.7.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex 0.1.69 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -215,7 +215,7 @@ dependencies = [
 [[package]]
 name = "imap"
 version = "0.0.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/miquelruiz/rust-imap.git#6816b922f0689d6a9f2e560c9492042e1ae773e2"
 dependencies = [
  "openssl 0.7.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex 0.1.69 (registry+https://github.com/rust-lang/crates.io-index)",
