@@ -2,6 +2,7 @@
 name = "mail-todo"
 version = "0.0.1"
 dependencies = [
+ "glib 0.0.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "gtk 0.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "imap 0.0.5 (git+https://github.com/miquelruiz/rust-imap.git)",
  "notify-rust 3.1.1 (registry+https://github.com/rust-lang/crates.io-index)",

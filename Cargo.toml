@@ -6,9 +6,13 @@ authors = [ "Miquel Ruiz <mruiz@cpan.org>" ]
 
 [dependencies]
 
-gtk = "*"
+glib = "*"
 #imap = "*"
 imap = { git = "https://github.com/miquelruiz/rust-imap.git" }
 openssl = "*"
 regex = "*"
 notify-rust = "*"
+
+[dependencies.gtk]
+version = "*"
+features = ["v3_10"]

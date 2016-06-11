@@ -1,6 +1,8 @@
 extern crate gtk;
 use gtk::prelude::*;
-use gtk::{StatusIcon};
+use gtk::{Builder, CheckButton, ListBox, StatusIcon, Window};
+
+extern crate glib;
 
 extern crate imap;
 use imap::client::IMAPStream;
@@ -14,10 +16,11 @@ use openssl::ssl::{SslContext, SslMethod};
 extern crate regex;
 use regex::Regex;
 
+use std::cell::RefCell;
 use std::io::prelude::*;
 use std::fs::File;
 use std::path::Path;
-use std::sync::mpsc::{channel, Receiver};
+use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 use std::time::Duration;
 
@@ -28,33 +31,70 @@ const NAME: &'static str = "Mail-todo";
 const MBOX: &'static str = "ToDo";
 const SLEEP: u64 = 10;
 
+thread_local!(
+    static GLOBAL: RefCell<Option<(gtk::ListBox, Receiver<String>)>> =
+        RefCell::new(None)
+);
+
 fn main() {
     if gtk::init().is_err() {
         panic!("Failed to initialize GTK");
     }
 
-    // Channel used to hide/show the status icon
-    let (tx, rx) = channel::<Message>();
+    let (stoptx, stoprx) = channel::<Message>();
+    let (todotx, todorx) = channel::<String>();
+
+    let icon = StatusIcon::new_from_icon_name(ICON);
+    icon.set_title(NAME);
+//    icon.connect_popup_menu(move |_, x, y| {
+//        println!("Dog science: {} {}", x, y);
+//        window.show_all();
+//    });
+
+    let ui = include_str!("test.glade");
+    let builder = Builder::new_from_string(ui);
+    let window: Window = builder.get_object("window").unwrap();
+    window.connect_delete_event(move |_, _| {
+        println!("Closing...");
+        let _ = stoptx.send(Message::Quit).unwrap();
+        icon.set_visible(false);
+        gtk::main_quit();
+        Inhibit(false)
+    });
+
+    let content: ListBox = builder.get_object("content").unwrap();
+
+    GLOBAL.with(move |global| {
+        *global.borrow_mut() = Some((content, todorx))
+    });
 
     let creds = get_credentials().unwrap();
     let child = thread::Builder::new()
         .name("poller".to_string())
-        .spawn(move || { poll_imap(creds, rx); }).unwrap();
+        .spawn(move || {
+            glib::timeout_add_seconds(SLEEP as u32, receive);
+            poll_imap(creds, todotx, stoprx);
+        }).unwrap();
 
-    let icon = StatusIcon::new_from_icon_name(ICON);
-    icon.set_title(NAME);
-
-    icon.connect_popup_menu(move |_, x, y| {
-        println!("Dog science: {} {}", x, y);
-        let _ = tx.send(Message::Quit).unwrap();
-        gtk::main_quit();
-    });
-
+    window.show_all();
     gtk::main();
     let _ = child.join();
 }
 
-fn poll_imap(creds: Creds, rx: Receiver<Message>) {
+fn receive() -> glib::Continue {
+    GLOBAL.with(|global| {
+        if let Some((ref lb, ref rx)) = *global.borrow() {
+            if let Ok(todo) = rx.try_recv() {
+                let check = CheckButton::new_with_label(&todo);
+                lb.add(&check);
+                lb.show_all();
+            }
+        }
+    });
+    glib::Continue(true)
+}
+
+fn poll_imap(creds: Creds, tx: Sender<String>, rx: Receiver<Message>) {
     loop {
         println!("Trying {}:{}... ", creds.host, creds.port);
         match get_connection(&creds) {
@@ -68,7 +108,11 @@ fn poll_imap(creds: Creds, rx: Receiver<Message>) {
                 loop {
                     match count_tasks(&mut imap) {
                         Err(e) => { println!("{}", e); break },
-                        Ok(t)  => if t != tasks { tasks = t; notify(tasks); },
+                        Ok(t)  => if t != tasks {
+                            tasks = t;
+                            notify(tasks);
+                            let _ = tx.send("ZOMFG!".to_string());
+                        },
                     }
                     match rx.try_recv() {
                         Ok(Message::Quit) => return,
@@ -144,10 +188,9 @@ fn get_connection(creds: &Creds) -> Result<IMAPStream, String> {
 }
 
 fn count_tasks(imap_socket: &mut IMAPStream) -> Result<u32, String> {
-    print!("Counting... ");
     imap_socket.select(MBOX)
         .map_err(|e| format!("Error selecting mbox: {}", e))
-        .map(|m| { println!("found {:?}", m.exists); m.exists })
+        .map(|m| m.exists)
 }
 
 #[allow(dead_code)]
@@ -160,9 +203,9 @@ fn logout(imap_socket: &mut IMAPStream) {
 fn notify(tasks: u32) {
     println!("{:?} pending tasks", tasks);
     Notification::new()
-        .summary("Notifier")
+        .summary(NAME)
         .body(&format!("{} tasks pending", tasks))
-        .icon("task-due")
+        .icon(ICON)
         .timeout(5000)
         .show().unwrap();
 }
