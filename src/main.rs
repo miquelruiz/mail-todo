@@ -115,7 +115,11 @@ fn poll_imap(creds: Creds, tx: Sender<String>, rx: Receiver<Message>) {
                         },
                     }
                     match rx.try_recv() {
-                        Ok(Message::Quit) => return,
+                        Ok(Message::Quit) => {
+                            // Since we are exiting, no big deal if it fails
+                            let _ = imap.logout();
+                            return;
+                        },
                         Err(_) => (),
                     }
                     std::thread::sleep(Duration::new(SLEEP, 0));
@@ -191,13 +195,6 @@ fn count_tasks(imap_socket: &mut IMAPStream) -> Result<u32, String> {
     imap_socket.select(MBOX)
         .map_err(|e| format!("Error selecting mbox: {}", e))
         .map(|m| m.exists)
-}
-
-#[allow(dead_code)]
-fn logout(imap_socket: &mut IMAPStream) {
-    if let Err(e) = imap_socket.logout() {
-        println!("Error {}", e)
-    };
 }
 
 fn notify(tasks: u32) {
