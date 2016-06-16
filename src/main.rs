@@ -17,9 +17,11 @@ extern crate regex;
 use regex::Regex;
 
 use std::cell::RefCell;
+use std::error::Error;
 use std::io::prelude::*;
 use std::fs::File;
 use std::path::Path;
+use std::result;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 use std::time::Duration;
@@ -30,6 +32,8 @@ const ICON: &'static str = "task-due";
 const NAME: &'static str = "Mail-todo";
 const MBOX: &'static str = "ToDo";
 const SLEEP: u64 = 10;
+
+type Result<T> = result::Result<T, Box<Error>>;
 
 thread_local!(
     static GLOBAL: RefCell<Option<(gtk::ListBox, Receiver<String>)>> =
@@ -99,7 +103,7 @@ fn poll_imap(creds: Creds, tx: Sender<String>, rx: Receiver<Message>) {
         println!("Trying {}:{}... ", creds.host, creds.port);
         match get_connection(&creds) {
             Err(e) => {
-                println!("  {}", e);
+                println!("  {:?}", e);
                 std::thread::sleep(Duration::new(SLEEP, 0));
             },
             Ok(mut imap) => {
@@ -107,7 +111,7 @@ fn poll_imap(creds: Creds, tx: Sender<String>, rx: Receiver<Message>) {
                 let mut tasks = 0;
                 loop {
                     match count_tasks(&mut imap) {
-                        Err(e) => { println!("{}", e); break },
+                        Err(e) => { println!("{:?}", e); break },
                         Ok(t)  => if t != tasks {
                             tasks = t;
                             notify(tasks);
@@ -141,7 +145,7 @@ struct Creds {
     port: u16,
 }
 
-fn get_credentials() -> Result<Creds, String> {
+fn get_credentials() -> Result<Creds> {
     let mut path = try!(std::env::home_dir().ok_or("Can't get home dir"));
 
     // Build path to config file
@@ -153,51 +157,46 @@ fn get_credentials() -> Result<Creds, String> {
     let pass = try!(extract_login(r"set imap_pass=(\w*)", &content));
     let host = try!(extract_login(r"set folder=imaps?://(.+):\d+", &content));
     let port = try!(extract_login(r"set folder=imaps?://.+:(\d+)", &content));
+    let port = try!(port.parse());
 
-    port.parse()
-        .map_err(|e :std::num::ParseIntError| e.to_string())
-        .map(|p| Creds {user: user, pass: pass, host: host, port: p})
+    Ok(Creds {user: user, pass: pass, host: host, port: port})
 }
 
-fn read_config_file(path: &Path) -> Result<String, String> {
+fn read_config_file(path: &Path) -> Result<String> {
     let mut content = String::new();
-    let mut file = try!(File::open(&path).map_err(|e| e.to_string()));
-    try!(file.read_to_string(&mut content).map_err(|e| e.to_string()));
+    let mut file = try!(File::open(&path));
+    try!(file.read_to_string(&mut content));
     Ok(content)
 }
 
-fn extract_login(pattern: &str, text: &str) -> Result<String, String> {
-    Regex::new(pattern).map_err(|e| e.to_string())
-        .and_then(|re| re.captures(text).ok_or(String::from("Couldn't match")))
-        .and_then(|c| c.at(1).ok_or(String::from("No captures")))
-        .map(|i| i.to_string())
+fn extract_login(pattern: &str, text: &str) -> Result<String> {
+    let re = try!(Regex::new(pattern));
+    let cap = try!(re.captures(text).ok_or("Couldn't match"));
+    let xtr = try!(cap.at(1).ok_or("No captures"));
+    Ok(xtr.to_string())
 }
 
-fn get_connection(creds: &Creds) -> Result<IMAPStream, String> {
+fn get_connection(creds: &Creds) -> Result<IMAPStream> {
     let mut imap_socket = try!(IMAPStream::connect(
         creds.host.clone(),
         creds.port,
         SslContext::new(SslMethod::Sslv23).ok()
-    ).map_err(|e| e.to_string()));
-
-    try!(imap_socket.login(&creds.user, &creds.pass)
-        .map_err(|e| e.to_string()));
-
+    ));
+    try!(imap_socket.login(&creds.user, &creds.pass));
     Ok(imap_socket)
 }
 
-fn count_tasks(imap_socket: &mut IMAPStream) -> Result<u32, String> {
-    imap_socket.select(MBOX)
-        .map_err(|e| format!("Error selecting mbox: {}", e))
-        .map(|m| m.exists)
+fn count_tasks(imap_socket: &mut IMAPStream) -> Result<u32> {
+    let mbox = try!(imap_socket.select(MBOX));
+    Ok(mbox.exists)
 }
 
 fn notify(tasks: u32) {
     println!("{:?} pending tasks", tasks);
-    Notification::new()
+    if let Err(e) = Notification::new()
         .summary(NAME)
         .body(&format!("{} tasks pending", tasks))
         .icon(ICON)
         .timeout(5000)
-        .show().unwrap();
+        .show() { println!("Couldn't show notification: {:?}", e) }
 }
