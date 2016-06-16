@@ -156,12 +156,7 @@ fn get_credentials() -> Result<Creds, String> {
 
     port.parse()
         .map_err(|e :std::num::ParseIntError| e.to_string())
-        .and_then(|p| Ok(Creds {
-            user: user,
-            pass: pass,
-            host: host,
-            port: p,
-        }))
+        .map(|p| Creds {user: user, pass: pass, host: host, port: p})
 }
 
 fn read_config_file(path: &Path) -> Result<String, String> {
