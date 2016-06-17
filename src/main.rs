@@ -35,6 +35,17 @@ const SLEEP: u64 = 10;
 
 type Result<T> = result::Result<T, Box<Error>>;
 
+enum Message {
+    Quit,
+}
+
+struct Creds {
+    user: String,
+    pass: String,
+    host: String,
+    port: u16,
+}
+
 thread_local!(
     static GLOBAL: RefCell<Option<(gtk::ListBox, Receiver<String>)>> =
         RefCell::new(None)
@@ -77,7 +88,7 @@ fn main() {
         .name("poller".to_string())
         .spawn(move || {
             glib::timeout_add_seconds(SLEEP as u32, receive);
-            poll_imap(creds, todotx, stoprx);
+            connect(creds, todotx, stoprx);
         }).unwrap();
 
     window.show_all();
@@ -98,7 +109,7 @@ fn receive() -> glib::Continue {
     glib::Continue(true)
 }
 
-fn poll_imap(creds: Creds, tx: Sender<String>, rx: Receiver<Message>) {
+fn connect(creds: Creds, tx: Sender<String>, rx: Receiver<Message>) {
     loop {
         println!("Trying {}:{}... ", creds.host, creds.port);
         match get_connection(&creds) {
@@ -108,41 +119,39 @@ fn poll_imap(creds: Creds, tx: Sender<String>, rx: Receiver<Message>) {
             },
             Ok(mut imap) => {
                 println!("Connected!");
-                let mut tasks = 0;
-                loop {
-                    match count_tasks(&mut imap) {
-                        Err(e) => { println!("{:?}", e); break },
-                        Ok(t)  => if t != tasks {
-                            tasks = t;
-                            notify(tasks);
-                            let _ = tx.send("ZOMFG!".to_string());
-                        },
-                    }
-                    match rx.try_recv() {
-                        Ok(Message::Quit) => {
-                            // Since we are exiting, no big deal if it fails
-                            let _ = imap.logout();
-                            return;
-                        },
-                        Err(_) => (),
-                    }
-                    std::thread::sleep(Duration::new(SLEEP, 0));
-                }
+                poll_imap(&mut imap, &tx, &rx);
+                break;
             },
         };
         std::thread::sleep(Duration::new(SLEEP, 0));
     }
 }
 
-enum Message {
-    Quit,
-}
-
-struct Creds {
-    user: String,
-    pass: String,
-    host: String,
-    port: u16,
+fn poll_imap(
+    mut imap: &mut IMAPStream,
+    tx: &Sender<String>,
+    rx: &Receiver<Message>
+){
+    let mut tasks = 0;
+    loop {
+        match count_tasks(&mut imap) {
+            Err(e) => { println!("{:?}", e); break },
+            Ok(t)  => if t != tasks {
+                tasks = t;
+                notify(tasks);
+                let _ = tx.send("ZOMFG!".to_string());
+            },
+        }
+        match rx.try_recv() {
+            Ok(Message::Quit) => {
+                // Since we are exiting, no big deal if it fails
+                let _ = imap.logout();
+                break;
+            },
+            Err(_) => (),
+        }
+        std::thread::sleep(Duration::new(SLEEP, 0));
+    }
 }
 
 fn get_credentials() -> Result<Creds> {
