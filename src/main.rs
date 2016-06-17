@@ -98,17 +98,10 @@ fn main() {
 
 fn receive() -> glib::Continue {
     GLOBAL.with(|global| { if let Some((ref lb, ref rx)) = *global.borrow() {
-        let mut done = false;
-        while !done {
-            match rx.try_recv() {
-                Ok(todo) => {
-                    let check = CheckButton::new_with_label(&todo);
-                    lb.add(&check);
-                    lb.show_all();
-                    done = false;
-                },
-                Err(_) => done = true,
-            }
+        while let Ok(todo) = rx.try_recv() {
+            let check = CheckButton::new_with_label(&todo);
+            lb.add(&check);
+            lb.show_all();
         }
     }});
     glib::Continue(true)
