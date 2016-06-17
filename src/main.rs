@@ -97,15 +97,20 @@ fn main() {
 }
 
 fn receive() -> glib::Continue {
-    GLOBAL.with(|global| {
-        if let Some((ref lb, ref rx)) = *global.borrow() {
-            if let Ok(todo) = rx.try_recv() {
-                let check = CheckButton::new_with_label(&todo);
-                lb.add(&check);
-                lb.show_all();
+    GLOBAL.with(|global| { if let Some((ref lb, ref rx)) = *global.borrow() {
+        let mut done = false;
+        while !done {
+            match rx.try_recv() {
+                Ok(todo) => {
+                    let check = CheckButton::new_with_label(&todo);
+                    lb.add(&check);
+                    lb.show_all();
+                    done = false;
+                },
+                Err(_) => done = true,
             }
         }
-    });
+    }});
     glib::Continue(true)
 }
 
@@ -131,15 +136,19 @@ fn poll_imap(
     mut imap: &mut IMAPStream,
     tx: &Sender<String>,
     rx: &Receiver<Message>
-){
-    let mut tasks = 0;
+) {
+    let mut ntasks = 0;
     loop {
         match count_tasks(&mut imap) {
             Err(e) => { println!("{:?}", e); break },
-            Ok(t)  => if t != tasks {
-                tasks = t;
-                notify(tasks);
-                let _ = tx.send("ZOMFG!".to_string());
+            Ok(t)  => if t != ntasks {
+                ntasks = t;
+                notify(ntasks);
+                get_tasks().and_then(|tasks| {
+                    println!("{:?}", tasks);
+                    for task in tasks { tx.send(task.to_string()); }
+                    Ok(())
+                });
             },
         }
         match rx.try_recv() {
@@ -198,6 +207,10 @@ fn get_connection(creds: &Creds) -> Result<IMAPStream> {
 fn count_tasks(imap_socket: &mut IMAPStream) -> Result<u32> {
     let mbox = try!(imap_socket.select(MBOX));
     Ok(mbox.exists)
+}
+
+fn get_tasks() -> Result<Vec<&'static str>> {
+    Ok(vec!("a", "b", "c"))
 }
 
 fn notify(tasks: u32) {
