@@ -204,9 +204,8 @@ fn count_tasks(imap: &mut IMAPStream) -> Result<u32> {
 
 fn get_tasks(mut imap: &mut IMAPStream) -> Result<Vec<String>> {
     let mut tasks = vec!();
-    let ntasks = try!(count_tasks(&mut imap));
-    try!(imap.select(MBOX));
-    for t in 1..ntasks+1 {
+    let mbox = try!(imap.select(MBOX));
+    for t in 1..mbox.exists+1 {
         let _ = imap.fetch(&t.to_string(), "body[header]").map(|lines| {
             let mut header = String::new();
             for line in lines {
