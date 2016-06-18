@@ -137,7 +137,7 @@ fn poll_imap(
             Ok(t)  => if t != ntasks {
                 ntasks = t;
                 notify(ntasks);
-                get_tasks().and_then(|tasks| {
+                get_tasks(&mut imap).and_then(|tasks| {
                     println!("{:?}", tasks);
                     for task in tasks { tx.send(task.to_string()); }
                     Ok(())
@@ -164,10 +164,10 @@ fn get_credentials() -> Result<Creds> {
     path.push(CONF);
 
     let content = try!(read_config_file(path.as_path()));
-    let user = try!(extract_login(r"set imap_user=(\w*)", &content));
-    let pass = try!(extract_login(r"set imap_pass=(\w*)", &content));
-    let host = try!(extract_login(r"set folder=imaps?://(.+):\d+", &content));
-    let port = try!(extract_login(r"set folder=imaps?://.+:(\d+)", &content));
+    let user = try!(extract_info(r"set imap_user=(\w*)", &content));
+    let pass = try!(extract_info(r"set imap_pass=(\w*)", &content));
+    let host = try!(extract_info(r"set folder=imaps?://(.+):\d+", &content));
+    let port = try!(extract_info(r"set folder=imaps?://.+:(\d+)", &content));
     let port = try!(port.parse());
 
     Ok(Creds {user: user, pass: pass, host: host, port: port})
@@ -180,7 +180,7 @@ fn read_config_file(path: &Path) -> Result<String> {
     Ok(content)
 }
 
-fn extract_login(pattern: &str, text: &str) -> Result<String> {
+fn extract_info(pattern: &str, text: &str) -> Result<String> {
     let re = try!(Regex::new(pattern));
     let cap = try!(re.captures(text).ok_or("Couldn't match"));
     let xtr = try!(cap.at(1).ok_or("No captures"));
@@ -188,22 +188,37 @@ fn extract_login(pattern: &str, text: &str) -> Result<String> {
 }
 
 fn get_connection(creds: &Creds) -> Result<IMAPStream> {
-    let mut imap_socket = try!(IMAPStream::connect(
+    let mut imap = try!(IMAPStream::connect(
         creds.host.clone(),
         creds.port,
         SslContext::new(SslMethod::Sslv23).ok()
     ));
-    try!(imap_socket.login(&creds.user, &creds.pass));
-    Ok(imap_socket)
+    try!(imap.login(&creds.user, &creds.pass));
+    Ok(imap)
 }
 
-fn count_tasks(imap_socket: &mut IMAPStream) -> Result<u32> {
-    let mbox = try!(imap_socket.select(MBOX));
+fn count_tasks(imap: &mut IMAPStream) -> Result<u32> {
+    let mbox = try!(imap.select(MBOX));
     Ok(mbox.exists)
 }
 
-fn get_tasks() -> Result<Vec<&'static str>> {
-    Ok(vec!("a", "b", "c"))
+fn get_tasks(mut imap: &mut IMAPStream) -> Result<Vec<String>> {
+    let mut tasks = vec!();
+    let ntasks = try!(count_tasks(&mut imap));
+    try!(imap.select(MBOX));
+    for t in 1..ntasks+1 {
+        let _ = imap.fetch(&t.to_string(), "body[header]").map(|lines| {
+            let mut header = String::new();
+            for line in lines {
+                header = header + &line;
+            }
+            if let Ok(subj) = extract_info(r"Subject: (.*)", &header) {
+                tasks.push(subj);
+            }
+        });
+    }
+
+    Ok(tasks)
 }
 
 fn notify(tasks: u32) {
