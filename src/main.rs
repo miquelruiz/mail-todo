@@ -109,6 +109,7 @@ fn main() {
 fn receive() -> glib::Continue {
     GLOBAL.with(|global| {
         if let Some((ref lb, ref rx, ref mut todo)) = *global.borrow_mut() {
+            let ntasks_old = todo.len();
             while let Ok(task) = rx.try_recv() {
                 if !todo.contains_key(&task.title[..]) {
                     todo.insert(task.title.clone(), task.uid);
@@ -116,6 +117,11 @@ fn receive() -> glib::Continue {
                     lb.add(&check);
                     lb.show_all();
                 }
+            }
+
+            let ntasks_new = todo.len();
+            if ntasks_old != ntasks_new {
+                notify(ntasks_new);
             }
         }
     });
@@ -215,7 +221,7 @@ fn get_tasks(mut imap: &mut IMAPStream) -> Result<Vec<Task>> {
         let subj = try!(get_subj(imap, seq));
         tasks.push(Task {title: subj, uid: uid});
     }
-
+    println!("{:?}", tasks);
     Ok(tasks)
 }
 
@@ -238,7 +244,7 @@ fn get_subj(imap: &mut IMAPStream, seq: &str) -> Result<String> {
     Ok(subj)
 }
 
-fn notify(tasks: u32) {
+fn notify(tasks: usize) {
     println!("{:?} pending tasks", tasks);
     if let Err(e) = Notification::new()
         .summary(NAME)
