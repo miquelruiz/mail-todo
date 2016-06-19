@@ -1,6 +1,6 @@
 extern crate gtk;
 use gtk::prelude::*;
-use gtk::{Builder, CheckButton, ListBox, StatusIcon, Window};
+use gtk::{Builder, CheckButton, ListBox, ListBoxRow, StatusIcon, Window};
 
 extern crate glib;
 
@@ -17,7 +17,7 @@ extern crate regex;
 use regex::Regex;
 
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::HashSet;
 use std::error::Error;
 use std::io::prelude::*;
 use std::fs::File;
@@ -48,15 +48,16 @@ struct Creds {
     port: u16,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Hash, Eq, PartialEq, Debug)]
 struct Task {
     title: String,
     uid: u64,
+    pos: u32,
 }
 
 thread_local!(
     static GLOBAL: RefCell<
-        Option<(gtk::ListBox, Receiver<Task>, HashMap<String, u64>)>
+        Option<(gtk::ListBox, Receiver<HashSet<Task>>, HashSet<Task>)>
     > = RefCell::new(None)
 );
 
@@ -66,7 +67,7 @@ fn main() {
     }
 
     let (stoptx, stoprx) = channel::<Message>();
-    let (todotx, todorx) = channel::<Task>();
+    let (todotx, todorx) = channel::<HashSet<Task>>();
 
     let icon = StatusIcon::new_from_icon_name(ICON);
     icon.set_title(NAME);
@@ -86,7 +87,7 @@ fn main() {
         Inhibit(false)
     });
 
-    let todo: HashMap<String, u64> = HashMap::new();
+    let todo: HashSet<Task> = HashSet::new();
     let content: ListBox = builder.get_object("content").unwrap();
 
     GLOBAL.with(move |global| {
@@ -110,13 +111,21 @@ fn receive() -> glib::Continue {
     GLOBAL.with(|global| {
         if let Some((ref lb, ref rx, ref mut todo)) = *global.borrow_mut() {
             let ntasks_old = todo.len();
-            while let Ok(task) = rx.try_recv() {
-                if !todo.contains_key(&task.title[..]) {
-                    todo.insert(task.title.clone(), task.uid);
-                    let check = CheckButton::new_with_label(&task.title);
-                    lb.add(&check);
-                    lb.show_all();
+            while let Ok(tasks) = rx.try_recv() {
+                for task in tasks.iter() {
+                    let new_task = task.clone();
+                    if todo.insert(new_task) {
+                        let check = CheckButton::new_with_label(&task.title);
+                        lb.add(&check);
+                    }
                 }
+
+                for task in todo.iter() {
+                    if !tasks.contains(&task) {
+                        println!("Should delete {}", task.title);
+                    }
+                }
+                lb.show_all();
             }
 
             let ntasks_new = todo.len();
@@ -128,7 +137,7 @@ fn receive() -> glib::Continue {
     glib::Continue(true)
 }
 
-fn connect(creds: Creds, tx: Sender<Task>, rx: Receiver<Message>) {
+fn connect(creds: Creds, tx: Sender<HashSet<Task>>, rx: Receiver<Message>) {
     loop {
         println!("Trying {}:{}... ", creds.host, creds.port);
         match get_connection(&creds) {
@@ -148,13 +157,13 @@ fn connect(creds: Creds, tx: Sender<Task>, rx: Receiver<Message>) {
 
 fn poll_imap(
     mut imap: &mut IMAPStream,
-    tx: &Sender<Task>,
+    tx: &Sender<HashSet<Task>>,
     rx: &Receiver<Message>
 ) {
     let mut ntasks = 0;
     loop {
         match get_tasks(&mut imap) {
-            Ok(tasks) => for task in tasks { tx.send(task); },
+            Ok(tasks) => { tx.send(tasks); },
             Err(e) => println!("Error getting tasks: {}", e),
         }
 
@@ -207,19 +216,14 @@ fn get_connection(creds: &Creds) -> Result<IMAPStream> {
     Ok(imap)
 }
 
-fn count_tasks(imap: &mut IMAPStream) -> Result<u32> {
+fn get_tasks(mut imap: &mut IMAPStream) -> Result<HashSet<Task>> {
+    let mut tasks: HashSet<Task> = HashSet::new();
     let mbox = try!(imap.select(MBOX));
-    Ok(mbox.exists)
-}
-
-fn get_tasks(mut imap: &mut IMAPStream) -> Result<Vec<Task>> {
-    let mut tasks = vec!();
-    let mbox = try!(imap.select(MBOX));
-    for seq in 1..mbox.exists+1 {
-        let seq = &seq.to_string();
+    for seqn in 1..mbox.exists+1 {
+        let seq = &seqn.to_string();
         let uid = try!(get_uid(imap, seq));
         let subj = try!(get_subj(imap, seq));
-        tasks.push(Task {title: subj, uid: uid});
+        tasks.insert(Task {title: subj, uid: uid, pos: seqn});
     }
     println!("{:?}", tasks);
     Ok(tasks)
