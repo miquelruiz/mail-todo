@@ -46,6 +46,11 @@ struct Creds {
     port: u16,
 }
 
+struct Task {
+    title: String,
+    uid: u64,
+}
+
 thread_local!(
     static GLOBAL: RefCell<Option<(gtk::ListBox, Receiver<String>)>> =
         RefCell::new(None)
@@ -204,19 +209,33 @@ fn count_tasks(imap: &mut IMAPStream) -> Result<u32> {
 fn get_tasks(mut imap: &mut IMAPStream) -> Result<Vec<String>> {
     let mut tasks = vec!();
     let mbox = try!(imap.select(MBOX));
-    for t in 1..mbox.exists+1 {
-        let _ = imap.fetch(&t.to_string(), "body[header]").map(|lines| {
-            let mut header = String::new();
-            for line in lines {
-                header = header + &line;
-            }
-            if let Ok(subj) = extract_info(r"Subject: (.*)", &header) {
-                tasks.push(subj);
-            }
-        });
+    for seq in 1..mbox.exists+1 {
+        let seq = &seq.to_string();
+        let uid = try!(get_uid(imap, seq));
+        let subj = try!(get_subj(imap, seq));
+        tasks.push(subj);
     }
 
     Ok(tasks)
+}
+
+fn get_uid(imap: &mut IMAPStream, seq: &str) -> Result<u64> {
+    let resp = try!(imap.fetch(seq, "uid"));
+    let uid = try!(extract_info(r".* FETCH \(UID (\d+)\)", &resp[0]));
+    let uid = try!(uid.parse());
+    Ok(uid)
+}
+
+fn get_subj(imap: &mut IMAPStream, seq: &str) -> Result<String> {
+    let lines = try!(imap.fetch(seq, "body[header]"));
+
+    let mut headers = String::new();
+    for line in lines {
+        headers = headers + &line;
+    }
+
+    let subj = try!(extract_info(r"Subject: (.*)\r", &headers));
+    Ok(subj)
 }
 
 fn notify(tasks: u32) {
