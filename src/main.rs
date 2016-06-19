@@ -17,7 +17,7 @@ extern crate regex;
 use regex::Regex;
 
 use std::cell::RefCell;
-use std::collections::hash_map::HashMap;
+use std::collections::HashMap;
 use std::error::Error;
 use std::io::prelude::*;
 use std::fs::File;
@@ -147,25 +147,15 @@ fn poll_imap(
 ) {
     let mut ntasks = 0;
     loop {
-        match count_tasks(&mut imap) {
-            Err(e) => { println!("{:?}", e); break },
-            Ok(t)  => if t != ntasks {
-                ntasks = t;
-                notify(ntasks);
-                get_tasks(&mut imap).and_then(|tasks| {
-                    println!("{:?}", tasks);
-                    for task in tasks { tx.send(task); }
-                    Ok(())
-                });
-            },
+        match get_tasks(&mut imap) {
+            Ok(tasks) => for task in tasks { tx.send(task); },
+            Err(e) => println!("Error getting tasks: {}", e),
         }
-        match rx.try_recv() {
-            Ok(Message::Quit) => {
-                // Since we are exiting, no big deal if it fails
-                let _ = imap.logout();
-                break;
-            },
-            Err(_) => (),
+
+        if let Ok(Message::Quit) = rx.try_recv() {
+            // Since we are exiting, no big deal if it fails
+            let _ = imap.logout();
+            break;
         }
         std::thread::sleep(Duration::new(SLEEP, 0));
     }
