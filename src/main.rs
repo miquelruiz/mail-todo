@@ -112,20 +112,16 @@ fn receive() -> glib::Continue {
         if let Some((ref lb, ref rx, ref mut todo)) = *global.borrow_mut() {
             let mut notif = false;
             while let Ok(tasks) = rx.try_recv() {
-                for task in tasks.iter() {
-                    let new_task = task.clone();
-                    if todo.insert(task.clone()) {
-                        let check = CheckButton::new_with_label(&task.title);
-                        lb.add(&check);
-                        notif = true;
-                    }
+
+                for task in tasks.difference(&todo.clone()) {
+                    todo.insert(task.clone());
+                    let check = CheckButton::new_with_label(&task.title);
+                    lb.add(&check);
+                    notif = true;
                 }
 
-                for task in todo.iter() {
-                    if !tasks.contains(&task) {
-                        println!("Should delete {}", task.title);
-                        notif = true;
-                    }
+                for task in todo.difference(&tasks.clone()) {
+                    println!("Should delete {}", task.title);
                 }
                 lb.show_all();
             }
