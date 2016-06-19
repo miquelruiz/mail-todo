@@ -17,6 +17,7 @@ extern crate regex;
 use regex::Regex;
 
 use std::cell::RefCell;
+use std::collections::hash_map::HashMap;
 use std::error::Error;
 use std::io::prelude::*;
 use std::fs::File;
@@ -54,8 +55,9 @@ struct Task {
 }
 
 thread_local!(
-    static GLOBAL: RefCell<Option<(gtk::ListBox, Receiver<Task>)>> =
-        RefCell::new(None)
+    static GLOBAL: RefCell<
+        Option<(gtk::ListBox, Receiver<Task>, HashMap<String, u64>)>
+    > = RefCell::new(None)
 );
 
 fn main() {
@@ -84,10 +86,11 @@ fn main() {
         Inhibit(false)
     });
 
+    let todo: HashMap<String, u64> = HashMap::new();
     let content: ListBox = builder.get_object("content").unwrap();
 
     GLOBAL.with(move |global| {
-        *global.borrow_mut() = Some((content, todorx))
+        *global.borrow_mut() = Some((content, todorx, todo))
     });
 
     let creds = get_credentials().unwrap();
@@ -104,13 +107,18 @@ fn main() {
 }
 
 fn receive() -> glib::Continue {
-    GLOBAL.with(|global| { if let Some((ref lb, ref rx)) = *global.borrow() {
-        while let Ok(todo) = rx.try_recv() {
-            let check = CheckButton::new_with_label(&todo.title);
-            lb.add(&check);
-            lb.show_all();
+    GLOBAL.with(|global| {
+        if let Some((ref lb, ref rx, ref mut todo)) = *global.borrow_mut() {
+            while let Ok(task) = rx.try_recv() {
+                if !todo.contains_key(&task.title[..]) {
+                    todo.insert(task.title.clone(), task.uid);
+                    let check = CheckButton::new_with_label(&task.title);
+                    lb.add(&check);
+                    lb.show_all();
+                }
+            }
         }
-    }});
+    });
     glib::Continue(true)
 }
 
