@@ -94,7 +94,7 @@ fn main() {
     let child = thread::Builder::new()
         .name("poller".to_string())
         .spawn(move || {
-            glib::timeout_add_seconds(SLEEP as u32, receive);
+            glib::timeout_add(100, receive);
             connect(creds, todotx, stoprx);
         }).unwrap();
 
