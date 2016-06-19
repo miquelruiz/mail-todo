@@ -110,27 +110,28 @@ fn main() {
 fn receive() -> glib::Continue {
     GLOBAL.with(|global| {
         if let Some((ref lb, ref rx, ref mut todo)) = *global.borrow_mut() {
-            let ntasks_old = todo.len();
+            let mut notif = false;
             while let Ok(tasks) = rx.try_recv() {
                 for task in tasks.iter() {
                     let new_task = task.clone();
-                    if todo.insert(new_task) {
+                    if todo.insert(task.clone()) {
                         let check = CheckButton::new_with_label(&task.title);
                         lb.add(&check);
+                        notif = true;
                     }
                 }
 
                 for task in todo.iter() {
                     if !tasks.contains(&task) {
                         println!("Should delete {}", task.title);
+                        notif = true;
                     }
                 }
                 lb.show_all();
             }
 
-            let ntasks_new = todo.len();
-            if ntasks_old != ntasks_new {
-                notify(ntasks_new);
+            if notif {
+                notify(todo.len());
             }
         }
     });
