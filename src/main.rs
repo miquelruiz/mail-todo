@@ -189,8 +189,7 @@ fn extract_info(pattern: &str, text: &str) -> Result<String> {
 
 fn get_connection(creds: &Creds) -> Result<IMAPStream> {
     let mut imap = try!(IMAPStream::connect(
-        creds.host.clone(),
-        creds.port,
+        (&creds.host[..], creds.port),
         SslContext::new(SslMethod::Sslv23).ok()
     ));
     try!(imap.login(&creds.user, &creds.pass));
