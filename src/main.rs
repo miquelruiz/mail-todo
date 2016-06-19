@@ -39,6 +39,7 @@ enum Message {
     Quit,
 }
 
+#[derive(Debug)]
 struct Creds {
     user: String,
     pass: String,
@@ -46,13 +47,14 @@ struct Creds {
     port: u16,
 }
 
+#[derive(Debug)]
 struct Task {
     title: String,
     uid: u64,
 }
 
 thread_local!(
-    static GLOBAL: RefCell<Option<(gtk::ListBox, Receiver<String>)>> =
+    static GLOBAL: RefCell<Option<(gtk::ListBox, Receiver<Task>)>> =
         RefCell::new(None)
 );
 
@@ -62,7 +64,7 @@ fn main() {
     }
 
     let (stoptx, stoprx) = channel::<Message>();
-    let (todotx, todorx) = channel::<String>();
+    let (todotx, todorx) = channel::<Task>();
 
     let icon = StatusIcon::new_from_icon_name(ICON);
     icon.set_title(NAME);
@@ -104,7 +106,7 @@ fn main() {
 fn receive() -> glib::Continue {
     GLOBAL.with(|global| { if let Some((ref lb, ref rx)) = *global.borrow() {
         while let Ok(todo) = rx.try_recv() {
-            let check = CheckButton::new_with_label(&todo);
+            let check = CheckButton::new_with_label(&todo.title);
             lb.add(&check);
             lb.show_all();
         }
@@ -112,7 +114,7 @@ fn receive() -> glib::Continue {
     glib::Continue(true)
 }
 
-fn connect(creds: Creds, tx: Sender<String>, rx: Receiver<Message>) {
+fn connect(creds: Creds, tx: Sender<Task>, rx: Receiver<Message>) {
     loop {
         println!("Trying {}:{}... ", creds.host, creds.port);
         match get_connection(&creds) {
@@ -132,7 +134,7 @@ fn connect(creds: Creds, tx: Sender<String>, rx: Receiver<Message>) {
 
 fn poll_imap(
     mut imap: &mut IMAPStream,
-    tx: &Sender<String>,
+    tx: &Sender<Task>,
     rx: &Receiver<Message>
 ) {
     let mut ntasks = 0;
@@ -144,7 +146,7 @@ fn poll_imap(
                 notify(ntasks);
                 get_tasks(&mut imap).and_then(|tasks| {
                     println!("{:?}", tasks);
-                    for task in tasks { tx.send(task.to_string()); }
+                    for task in tasks { tx.send(task); }
                     Ok(())
                 });
             },
@@ -206,14 +208,14 @@ fn count_tasks(imap: &mut IMAPStream) -> Result<u32> {
     Ok(mbox.exists)
 }
 
-fn get_tasks(mut imap: &mut IMAPStream) -> Result<Vec<String>> {
+fn get_tasks(mut imap: &mut IMAPStream) -> Result<Vec<Task>> {
     let mut tasks = vec!();
     let mbox = try!(imap.select(MBOX));
     for seq in 1..mbox.exists+1 {
         let seq = &seq.to_string();
         let uid = try!(get_uid(imap, seq));
         let subj = try!(get_subj(imap, seq));
-        tasks.push(subj);
+        tasks.push(Task {title: subj, uid: uid});
     }
 
     Ok(tasks)
