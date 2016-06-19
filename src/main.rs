@@ -1,6 +1,6 @@
 extern crate gtk;
 use gtk::prelude::*;
-use gtk::{Builder, CheckButton, ListBox, ListBoxRow, StatusIcon, Window};
+use gtk::{Builder, CheckButton, ListBox, StatusIcon, Window};
 
 extern crate glib;
 
@@ -52,7 +52,6 @@ struct Creds {
 struct Task {
     title: String,
     uid: u64,
-    pos: u32,
 }
 
 thread_local!(
@@ -157,7 +156,6 @@ fn poll_imap(
     tx: &Sender<HashSet<Task>>,
     rx: &Receiver<Message>
 ) {
-    let mut ntasks = 0;
     loop {
         match get_tasks(&mut imap) {
             Ok(tasks) => { tx.send(tasks); },
@@ -220,7 +218,7 @@ fn get_tasks(mut imap: &mut IMAPStream) -> Result<HashSet<Task>> {
         let seq = &seqn.to_string();
         let uid = try!(get_uid(imap, seq));
         let subj = try!(get_subj(imap, seq));
-        tasks.insert(Task {title: subj, uid: uid, pos: seqn});
+        tasks.insert(Task {title: subj, uid: uid});
     }
     println!("{:?}", tasks);
     Ok(tasks)
