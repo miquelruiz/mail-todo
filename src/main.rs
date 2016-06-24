@@ -40,6 +40,11 @@ enum Message {
     Quit,
 }
 
+enum UIMessage {
+    Tasks(HashSet<Task>),
+    Status(&'static str),
+}
+
 #[derive(Debug)]
 struct Creds {
     user: String,
@@ -56,7 +61,7 @@ struct Task {
 
 thread_local!(
     static GLOBAL: RefCell<
-        Option<(gtk::Builder, Receiver<HashSet<Task>>, HashSet<Task>)>
+        Option<(gtk::Builder, Receiver<UIMessage>, HashSet<Task>)>
     > = RefCell::new(None)
 );
 
@@ -66,7 +71,7 @@ fn main() {
     }
 
     let (stoptx, stoprx) = channel::<Message>();
-    let (todotx, todorx) = channel::<HashSet<Task>>();
+    let (todotx, todorx) = channel::<UIMessage>();
 
     let icon = StatusIcon::new_from_icon_name(ICON);
     icon.set_title(NAME);
@@ -112,7 +117,7 @@ fn receive() -> glib::Continue {
 //            let mut notif = false;
             let lb: gtk::ListBox = ui.get_object("content").unwrap();
             let ntasks_old = todo.len();
-            while let Ok(tasks) = rx.try_recv() {
+            while let Ok(UIMessage::Tasks(tasks)) = rx.try_recv() {
 
                 let mut tasks = tasks.iter().cloned().collect::<Vec<_>>();
                 tasks.sort_by(|a, b| a.uid.cmp(&b.uid));
@@ -156,16 +161,17 @@ fn receive() -> glib::Continue {
     glib::Continue(true)
 }
 
-fn connect(creds: Creds, tx: Sender<HashSet<Task>>, rx: Receiver<Message>) {
+fn connect(creds: Creds, tx: Sender<UIMessage>, rx: Receiver<Message>) {
     loop {
         println!("Trying {}:{}... ", creds.host, creds.port);
+        tx.send(UIMessage::Status("Connecting..."));
         match get_connection(&creds) {
             Err(e) => {
                 println!("  {:?}", e);
                 std::thread::sleep(Duration::new(SLEEP, 0));
             },
             Ok(mut imap) => {
-                println!("Connected!");
+                tx.send(UIMessage::Status("Connected"));
                 poll_imap(&mut imap, &tx, &rx);
                 break;
             },
@@ -176,12 +182,12 @@ fn connect(creds: Creds, tx: Sender<HashSet<Task>>, rx: Receiver<Message>) {
 
 fn poll_imap(
     mut imap: &mut IMAPStream,
-    tx: &Sender<HashSet<Task>>,
+    tx: &Sender<UIMessage>,
     rx: &Receiver<Message>
 ) {
     loop {
         match get_tasks(&mut imap) {
-            Ok(tasks) => { tx.send(tasks); },
+            Ok(tasks) => { tx.send(UIMessage::Tasks(tasks)); },
             Err(e) => println!("Error getting tasks: {}", e),
         }
 
