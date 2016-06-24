@@ -75,7 +75,7 @@ fn main() {
 //        window.show_all();
 //    });
 
-    let ui = include_str!("test.glade");
+    let ui = include_str!("../resources/ui.glade");
     let builder = Builder::new_from_string(ui);
 
     let window: Window = builder.get_object("window").unwrap();
