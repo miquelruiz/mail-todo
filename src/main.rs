@@ -130,6 +130,7 @@ fn update_list(
 ) {
     let lb: gtk::ListBox = ui.get_object("content").unwrap();
     let mut tasks = tasks.iter().cloned().collect::<Vec<_>>();
+    let ntasks = todo.len();
     tasks.sort_by(|a, b| a.uid.cmp(&b.uid));
 
     // This is incredibly nasty, but I'm not fucking able to loop
@@ -159,6 +160,10 @@ fn update_list(
     }
 
     lb.show_all();
+
+    if ntasks != todo.len() {
+        notify(todo.len());
+    }
 }
 
 fn update_status(ui: &gtk::Builder, status: &'static str) {
