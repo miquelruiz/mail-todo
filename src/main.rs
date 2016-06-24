@@ -56,7 +56,7 @@ struct Task {
 
 thread_local!(
     static GLOBAL: RefCell<
-        Option<(gtk::ListBox, Receiver<HashSet<Task>>, HashSet<Task>)>
+        Option<(gtk::Builder, Receiver<HashSet<Task>>, HashSet<Task>)>
     > = RefCell::new(None)
 );
 
@@ -77,6 +77,7 @@ fn main() {
 
     let ui = include_str!("test.glade");
     let builder = Builder::new_from_string(ui);
+
     let window: Window = builder.get_object("window").unwrap();
     window.connect_delete_event(move |_, _| {
         println!("Closing...");
@@ -87,10 +88,9 @@ fn main() {
     });
 
     let todo: HashSet<Task> = HashSet::new();
-    let content: ListBox = builder.get_object("content").unwrap();
 
     GLOBAL.with(move |global| {
-        *global.borrow_mut() = Some((content, todorx, todo))
+        *global.borrow_mut() = Some((builder, todorx, todo))
     });
 
     let creds = get_credentials().unwrap();
@@ -108,8 +108,9 @@ fn main() {
 
 fn receive() -> glib::Continue {
     GLOBAL.with(|global| {
-        if let Some((ref lb, ref rx, ref mut todo)) = *global.borrow_mut() {
+        if let Some((ref ui, ref rx, ref mut todo)) = *global.borrow_mut() {
 //            let mut notif = false;
+            let lb: gtk::ListBox = ui.get_object("content").unwrap();
             let ntasks_old = todo.len();
             while let Ok(tasks) = rx.try_recv() {
 
