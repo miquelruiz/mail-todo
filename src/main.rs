@@ -114,52 +114,54 @@ fn main() {
 fn receive() -> glib::Continue {
     GLOBAL.with(|global| {
         if let Some((ref ui, ref rx, ref mut todo)) = *global.borrow_mut() {
-//            let mut notif = false;
-            let lb: gtk::ListBox = ui.get_object("content").unwrap();
-            let ntasks_old = todo.len();
-            while let Ok(UIMessage::Tasks(tasks)) = rx.try_recv() {
-
-                let mut tasks = tasks.iter().cloned().collect::<Vec<_>>();
-                tasks.sort_by(|a, b| a.uid.cmp(&b.uid));
-
-                // This is incredibly nasty, but I'm not fucking able to loop
-                // over the children of the listbox because it returns
-                // Vec<Widget> instead of Vec<ListBoxRow>, and get_child is not
-                // defined on Widget. So fuck you.
-                for row in lb.get_children() {
-                    row.destroy();
-                    todo.clear();
-                }
-
-                // This is the ideal implementation that doesn't fucking work
-//                for task in todo.difference(&tasks.clone()) {
-//                    for row in lb.get_children() {
-//                        let check = row.get_child().unwrap();
-//                        let label = check.get_label().unwrap();
-//                        if label == task.title {
-//                            row.destroy();
-//                        }
-//                    }
-//                }
-
-                for task in tasks.iter() {
-                    todo.insert(task.clone());
-                    let check = CheckButton::new_with_label(&task.title);
-                    lb.add(&check);
-//                    notif = true;
-                }
-
-                lb.show_all();
-            }
-
-//            if notif {
-            if ntasks_old != todo.len() {
-                notify(todo.len());
-            }
+            while let Ok(msg) = rx.try_recv() { match msg {
+                UIMessage::Tasks(ref tasks) => update_list(ui, tasks, todo),
+                UIMessage::Status(st) => update_status(ui, st),
+            }}
         }
     });
     glib::Continue(true)
 }
+
+fn update_list(
+    ui: &gtk::Builder,
+    tasks: &HashSet<Task>,
+    todo: &mut HashSet<Task>,
+) {
+    let lb: gtk::ListBox = ui.get_object("content").unwrap();
+    let mut tasks = tasks.iter().cloned().collect::<Vec<_>>();
+    tasks.sort_by(|a, b| a.uid.cmp(&b.uid));
+
+    // This is incredibly nasty, but I'm not fucking able to loop
+    // over the children of the listbox because it returns
+    // Vec<Widget> instead of Vec<ListBoxRow>, and get_child is not
+    // defined on Widget. So fuck you.
+    for row in lb.get_children() {
+        row.destroy();
+        todo.clear();
+    }
+
+    // This is the ideal implementation that doesn't fucking work
+    //for task in todo.difference(&tasks.clone()) {
+    //    for row in lb.get_children() {
+    //        let check = row.get_child().unwrap();
+    //        let label = check.get_label().unwrap();
+    //        if label == task.title {
+    //            row.destroy();
+    //        }
+    //    }
+    //}
+
+    for task in tasks.iter() {
+        todo.insert(task.clone());
+        let check = CheckButton::new_with_label(&task.title);
+        lb.add(&check);
+    }
+
+    lb.show_all();
+}
+
+fn update_status(ui: &gtk::Builder, status: &'static str) {}
 
 fn connect(creds: Creds, tx: Sender<UIMessage>, rx: Receiver<Message>) {
     loop {
