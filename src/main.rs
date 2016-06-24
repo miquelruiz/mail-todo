@@ -1,6 +1,6 @@
 extern crate gtk;
 use gtk::prelude::*;
-use gtk::{Builder, CheckButton, ListBox, StatusIcon, Window};
+use gtk::{Builder, CheckButton, StatusIcon, Window};
 
 extern crate glib;
 
@@ -161,7 +161,11 @@ fn update_list(
     lb.show_all();
 }
 
-fn update_status(ui: &gtk::Builder, status: &'static str) {}
+fn update_status(ui: &gtk::Builder, status: &'static str) {
+    let bar: gtk::Statusbar = ui.get_object("status").unwrap();
+    let ctx = bar.get_context_id("whatever?");
+    let _ = bar.push(ctx, status);
+}
 
 fn connect(creds: Creds, tx: Sender<UIMessage>, rx: Receiver<Message>) {
     loop {
