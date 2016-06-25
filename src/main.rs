@@ -17,7 +17,7 @@ extern crate regex;
 use regex::Regex;
 
 use std::cell::RefCell;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::io::prelude::*;
 use std::fs::File;
@@ -61,7 +61,7 @@ struct Task {
 
 thread_local!(
     static GLOBAL: RefCell<
-        Option<(Builder, Receiver<UIMessage>, HashSet<Task>)>
+        Option<(Builder, Receiver<UIMessage>, HashMap<Task, bool>)>
     > = RefCell::new(None)
 );
 
@@ -92,7 +92,7 @@ fn main() {
         Inhibit(false)
     });
 
-    let todo: HashSet<Task> = HashSet::new();
+    let todo: HashMap<Task, bool> = HashMap::new();
 
     GLOBAL.with(move |global| {
         *global.borrow_mut() = Some((builder, todorx, todo))
@@ -126,7 +126,7 @@ fn receive() -> glib::Continue {
 fn update_list(
     ui: &Builder,
     tasks: &HashSet<Task>,
-    todo: &mut HashSet<Task>,
+    todo: &mut HashMap<Task, bool>,
 ) {
     let lb: ListBox = ui.get_object("content").unwrap();
     let mut tasks = tasks.iter().cloned().collect::<Vec<_>>();
@@ -154,10 +154,10 @@ fn update_list(
     //}
 
     for task in tasks.iter() {
-        todo.insert(task.clone());
+        todo.insert(task.clone(), true);
         let check = CheckButton::new_with_label(&task.title);
-
         lb.add(&check);
+        check.connect_toggled(|c| delete_task(c.get_label().unwrap()));
     }
 
     lb.show_all();
@@ -171,6 +171,10 @@ fn update_status(ui: &Builder, status: &'static str) {
     let bar: Statusbar = ui.get_object("status").unwrap();
     let ctx = bar.get_context_id("whatever?");
     let _ = bar.push(ctx, status);
+}
+
+fn delete_task(task: String) {
+    println!("Should delete '{}'", task);
 }
 
 fn connect(creds: Creds, tx: Sender<UIMessage>, rx: Receiver<Message>) {
