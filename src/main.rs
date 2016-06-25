@@ -1,6 +1,6 @@
 extern crate gtk;
 use gtk::prelude::*;
-use gtk::{Builder, CheckButton, StatusIcon, Window};
+use gtk::{Builder, CheckButton, ListBox, Statusbar, StatusIcon, Window};
 
 extern crate glib;
 
@@ -61,7 +61,7 @@ struct Task {
 
 thread_local!(
     static GLOBAL: RefCell<
-        Option<(gtk::Builder, Receiver<UIMessage>, HashSet<Task>)>
+        Option<(Builder, Receiver<UIMessage>, HashSet<Task>)>
     > = RefCell::new(None)
 );
 
@@ -124,11 +124,11 @@ fn receive() -> glib::Continue {
 }
 
 fn update_list(
-    ui: &gtk::Builder,
+    ui: &Builder,
     tasks: &HashSet<Task>,
     todo: &mut HashSet<Task>,
 ) {
-    let lb: gtk::ListBox = ui.get_object("content").unwrap();
+    let lb: ListBox = ui.get_object("content").unwrap();
     let mut tasks = tasks.iter().cloned().collect::<Vec<_>>();
     let ntasks = todo.len();
     tasks.sort_by(|a, b| a.uid.cmp(&b.uid));
@@ -156,6 +156,7 @@ fn update_list(
     for task in tasks.iter() {
         todo.insert(task.clone());
         let check = CheckButton::new_with_label(&task.title);
+
         lb.add(&check);
     }
 
@@ -166,8 +167,8 @@ fn update_list(
     }
 }
 
-fn update_status(ui: &gtk::Builder, status: &'static str) {
-    let bar: gtk::Statusbar = ui.get_object("status").unwrap();
+fn update_status(ui: &Builder, status: &'static str) {
+    let bar: Statusbar = ui.get_object("status").unwrap();
     let ctx = bar.get_context_id("whatever?");
     let _ = bar.push(ctx, status);
 }
