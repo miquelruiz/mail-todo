@@ -260,7 +260,7 @@ fn get_tasks(mut imap: &mut IMAPStream) -> Result<HashSet<Task>> {
         let subj = try!(get_subj(imap, seq));
         tasks.insert(Task {title: subj, uid: uid});
     }
-    println!("{:?}", tasks);
+//    println!("{:?}", tasks);
     Ok(tasks)
 }
 
