@@ -73,13 +73,6 @@ fn main() {
     let (stoptx, stoprx) = channel::<Message>();
     let (todotx, todorx) = channel::<UIMessage>();
 
-    let icon = StatusIcon::new_from_icon_name(ICON);
-    icon.set_title(NAME);
-//    icon.connect_popup_menu(move |_, x, y| {
-//        println!("Dog science: {} {}", x, y);
-//        window.show_all();
-//    });
-
     let ui = include_str!("../resources/ui.glade");
     let builder = Builder::new_from_string(ui);
 
@@ -87,9 +80,13 @@ fn main() {
     window.connect_delete_event(move |_, _| {
         println!("Closing...");
         let _ = stoptx.send(Message::Quit).unwrap();
-        icon.set_visible(false);
         gtk::main_quit();
         Inhibit(false)
+    });
+
+    let icon = StatusIcon::new_from_icon_name(ICON);
+    icon.connect_activate(move |_| {
+        window.set_visible(!window.is_visible());
     });
 
     let todo: HashMap<Task, bool> = HashMap::new();
@@ -106,7 +103,6 @@ fn main() {
             connect(creds, todotx, stoprx);
         }).unwrap();
 
-    window.show_all();
     gtk::main();
     let _ = child.join();
 }
