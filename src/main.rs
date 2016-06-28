@@ -8,13 +8,13 @@ extern crate mail_todo;
 use mail_todo::{Message, notifier, parser, poller, Task};
 
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::sync::mpsc::{channel, Receiver};
 use std::thread;
 
 thread_local!(
     static GLOBAL: RefCell<
-        Option<(Builder, Receiver<Message>, HashMap<Task, bool>)>
+        Option<(Builder, Receiver<Message>)>
     > = RefCell::new(None)
 );
 
@@ -42,10 +42,8 @@ fn main() {
         window.set_visible(!window.is_visible());
     });
 
-    let todo: HashMap<Task, bool> = HashMap::new();
-
     GLOBAL.with(move |global| {
-        *global.borrow_mut() = Some((builder, todorx, todo))
+        *global.borrow_mut() = Some((builder, todorx))
     });
     glib::timeout_add(100, receive);
 
@@ -62,9 +60,9 @@ fn main() {
 
 fn receive() -> glib::Continue {
     GLOBAL.with(|global| {
-        if let Some((ref ui, ref rx, ref mut todo)) = *global.borrow_mut() {
+        if let Some((ref ui, ref rx)) = *global.borrow_mut() {
             while let Ok(msg) = rx.try_recv() { match msg {
-                Message::Tasks(ref tasks) => update_list(ui, tasks, todo),
+                Message::Tasks(ref tasks) => update_list(ui, tasks),
                 Message::Status(st) => update_status(ui, st),
                 Message::Quit => panic!("Main thread got a Quit message!"),
             }}
@@ -76,12 +74,11 @@ fn receive() -> glib::Continue {
 fn update_list(
     ui: &Builder,
     tasks: &HashSet<Task>,
-    todo: &mut HashMap<Task, bool>,
 ) {
     let lb: ListBox = ui.get_object("content").unwrap();
     let mut tasks = tasks.iter().cloned().collect::<Vec<_>>();
-    let ntasks = todo.len();
     tasks.sort_by(|a, b| a.uid.cmp(&b.uid));
+    let mut old = 0;
 
     // This is incredibly nasty, but I'm not fucking able to loop
     // over the children of the listbox because it returns
@@ -89,7 +86,7 @@ fn update_list(
     // defined on Widget. So fuck you.
     for row in lb.get_children() {
         row.destroy();
-        todo.clear();
+        old += 1;
     }
 
     // This is the ideal implementation that doesn't fucking work
@@ -104,16 +101,17 @@ fn update_list(
     //}
 
     for task in tasks.iter() {
-        todo.insert(task.clone(), true);
         let check = CheckButton::new_with_label(&task.title);
         lb.add(&check);
-        check.connect_toggled(|c| delete_task(c.get_label().unwrap()));
+        let task2 = task.clone();
+        check.connect_toggled(move |_| delete_task(&task2));
     }
 
     lb.show_all();
 
-    if ntasks != todo.len() {
-        notifier::notify(todo.len());
+    let new = lb.get_children().len();
+    if old != new {
+        notifier::notify(new);
     }
 }
 
@@ -123,6 +121,7 @@ fn update_status(ui: &Builder, status: &'static str) {
     let _ = bar.push(ctx, status);
 }
 
-fn delete_task(task: String) {
-    println!("Should delete '{}'", task);
+fn delete_task(task: &Task) {
+    println!("Should delete '{}'", task.title);
+
 }
