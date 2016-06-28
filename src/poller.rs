@@ -13,14 +13,18 @@ fn duration() -> Duration { Duration::new(::SLEEP, 0) }
 pub fn connect(creds: Creds, tx: Sender<Message>, rx: Receiver<Message>) {
     loop {
         println!("Trying {}:{}... ", creds.host, creds.port);
-        tx.send(Message::Status("Connecting..."));
+        if let Err(e) = tx.send(Message::Status("Connecting...")) {
+            println!("Couldn't set the status: {}", e);
+        }
         match get_connection(&creds) {
             Err(e) => {
                 println!("  {:?}", e);
                 sleep(duration());
             },
             Ok(mut imap) => {
-                tx.send(Message::Status("Connected"));
+                if let Err(e) = tx.send(Message::Status("Connected")) {
+                    println!("Couldn't set the status: {}", e);
+                }
                 poll_imap(&mut imap, &tx, &rx);
                 break;
             },
@@ -36,7 +40,9 @@ fn poll_imap(
 ) {
     loop {
         match get_tasks(&mut imap) {
-            Ok(tasks) => { tx.send(Message::Tasks(tasks)); },
+            Ok(tasks) => { if let Err(e) = tx.send(Message::Tasks(tasks)) {
+                panic!("Main thread receiver deallocated: {}", e);
+            }},
             Err(e) => println!("Error getting tasks: {}", e),
         }
 
