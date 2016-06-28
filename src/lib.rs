@@ -16,10 +16,12 @@ pub const SLEEP: u64 = 10;
 
 pub type Result<T> = std::result::Result<T, Box<std::error::Error>>;
 
+#[derive(Debug)]
 pub enum Message {
     Quit,
     Status(&'static str),
     Tasks(std::collections::HashSet<Task>),
+    Delete(u64),
 }
 
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]

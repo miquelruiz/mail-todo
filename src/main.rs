@@ -9,12 +9,12 @@ use mail_todo::{Message, notifier, parser, poller, Task};
 
 use std::cell::RefCell;
 use std::collections::HashSet;
-use std::sync::mpsc::{channel, Receiver};
+use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 
 thread_local!(
     static GLOBAL: RefCell<
-        Option<(Builder, Receiver<Message>)>
+        Option<(Builder, Sender<Message>, Receiver<Message>)>
     > = RefCell::new(None)
 );
 
@@ -23,16 +23,17 @@ fn main() {
         panic!("Failed to initialize GTK");
     }
 
-    let (stoptx, stoprx) = channel::<Message>();
-    let (todotx, todorx) = channel::<Message>();
+    let (imap_tx, imap_rx) = channel::<Message>();
+    let (ui_tx, ui_rx)     = channel::<Message>();
 
     let ui = include_str!("../resources/ui.glade");
     let builder = Builder::new_from_string(ui);
 
+    let stop = imap_tx.clone();
     let window: Window = builder.get_object("window").unwrap();
     window.connect_delete_event(move |_, _| {
         println!("Closing...");
-        let _ = stoptx.send(Message::Quit).unwrap();
+        let _ = stop.send(Message::Quit).unwrap();
         gtk::main_quit();
         Inhibit(false)
     });
@@ -43,7 +44,7 @@ fn main() {
     });
 
     GLOBAL.with(move |global| {
-        *global.borrow_mut() = Some((builder, todorx))
+        *global.borrow_mut() = Some((builder, imap_tx, ui_rx))
     });
     glib::timeout_add(100, receive);
 
@@ -51,7 +52,7 @@ fn main() {
     let child = thread::Builder::new()
         .name("poller".to_string())
         .spawn(move || {
-            poller::connect(creds, todotx, stoprx);
+            poller::connect(creds, ui_tx, imap_rx);
         }).unwrap();
 
     gtk::main();
@@ -60,11 +61,11 @@ fn main() {
 
 fn receive() -> glib::Continue {
     GLOBAL.with(|global| {
-        if let Some((ref ui, ref rx)) = *global.borrow_mut() {
+        if let Some((ref ui, ref tx, ref rx)) = *global.borrow_mut() {
             while let Ok(msg) = rx.try_recv() { match msg {
-                Message::Tasks(ref tasks) => update_list(ui, tasks),
+                Message::Tasks(ref tasks) => update_list(ui, tasks, tx),
                 Message::Status(st) => update_status(ui, st),
-                Message::Quit => panic!("Main thread got a Quit message!"),
+                m => panic!("Main thread got unexpected message! {:?}", m),
             }}
         }
     });
@@ -74,6 +75,7 @@ fn receive() -> glib::Continue {
 fn update_list(
     ui: &Builder,
     tasks: &HashSet<Task>,
+    tx: &Sender<Message>,
 ) {
     let lb: ListBox = ui.get_object("content").unwrap();
     let mut tasks = tasks.iter().cloned().collect::<Vec<_>>();
@@ -103,8 +105,13 @@ fn update_list(
     for task in tasks.iter() {
         let check = CheckButton::new_with_label(&task.title);
         lb.add(&check);
-        let task2 = task.clone();
-        check.connect_toggled(move |_| delete_task(&task2));
+        let uid = task.uid;
+        let tx = tx.clone();
+        check.connect_toggled(move |_|
+            if let Err(e) = tx.send(Message::Delete(uid)) {
+                println!("Couldn't delete {}: {}", uid, e);
+            }
+        );
     }
 
     lb.show_all();
@@ -119,9 +126,4 @@ fn update_status(ui: &Builder, status: &'static str) {
     let bar: Statusbar = ui.get_object("status").unwrap();
     let ctx = bar.get_context_id("whatever?");
     let _ = bar.push(ctx, status);
-}
-
-fn delete_task(task: &Task) {
-    println!("Should delete '{}'", task.title);
-
 }
