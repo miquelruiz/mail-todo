@@ -1,18 +1,10 @@
 use regex::Regex;
 
-use ::Result;
+use ::{Creds, Result};
 use std::env;
 use std::io::prelude::*;
 use std::fs::File;
 use std::path::Path;
-
-#[derive(Debug)]
-pub struct Creds {
-    pub user: String,
-    pub pass: String,
-    pub host: String,
-    pub port: u16,
-}
 
 pub fn get_credentials() -> Result<Creds> {
     let mut path = try!(env::home_dir().ok_or("Can't get home dir"));

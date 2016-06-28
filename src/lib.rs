@@ -27,3 +27,11 @@ pub struct Task {
     pub title: String,
     pub uid: u64,
 }
+
+#[derive(Debug)]
+pub struct Creds {
+    pub user: String,
+    pub pass: String,
+    pub host: String,
+    pub port: u16,
+}

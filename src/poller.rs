@@ -1,8 +1,7 @@
 use imap::client::IMAPStream;
 use openssl::ssl::{SslContext, SslMethod};
 
-use ::parser::Creds;
-use ::{Message, parser, Result, Task};
+use ::{Creds, Message, parser, Result, Task};
 
 use std::collections::HashSet;
 use std::sync::mpsc::{Receiver, Sender};
