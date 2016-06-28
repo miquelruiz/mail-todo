@@ -94,12 +94,12 @@ fn main() {
     GLOBAL.with(move |global| {
         *global.borrow_mut() = Some((builder, todorx, todo))
     });
+    glib::timeout_add(100, receive);
 
     let creds = get_credentials().unwrap();
     let child = thread::Builder::new()
         .name("poller".to_string())
         .spawn(move || {
-            glib::timeout_add(100, receive);
             connect(creds, todotx, stoprx);
         }).unwrap();
 
