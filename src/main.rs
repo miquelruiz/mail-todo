@@ -4,44 +4,17 @@ use gtk::{Builder, CheckButton, ListBox, Statusbar, StatusIcon, Window};
 
 extern crate glib;
 
-extern crate imap;
-use imap::client::IMAPStream;
-
 extern crate mail_todo;
-use mail_todo::{notifier, parser, Result};
-use mail_todo::parser::Creds;
-
-extern crate openssl;
-use openssl::ssl::{SslContext, SslMethod};
+use mail_todo::{Message, notifier, parser, poller, Task};
 
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::mpsc::{channel, Receiver};
 use std::thread;
-use std::time::Duration;
-
-const MBOX: &'static str = "ToDo";
-const SLEEP: u64 = 10;
-
-
-enum Message {
-    Quit,
-}
-
-enum UIMessage {
-    Tasks(HashSet<Task>),
-    Status(&'static str),
-}
-
-#[derive(Clone, Hash, Eq, PartialEq, Debug)]
-struct Task {
-    title: String,
-    uid: u64,
-}
 
 thread_local!(
     static GLOBAL: RefCell<
-        Option<(Builder, Receiver<UIMessage>, HashMap<Task, bool>)>
+        Option<(Builder, Receiver<Message>, HashMap<Task, bool>)>
     > = RefCell::new(None)
 );
 
@@ -51,7 +24,7 @@ fn main() {
     }
 
     let (stoptx, stoprx) = channel::<Message>();
-    let (todotx, todorx) = channel::<UIMessage>();
+    let (todotx, todorx) = channel::<Message>();
 
     let ui = include_str!("../resources/ui.glade");
     let builder = Builder::new_from_string(ui);
@@ -80,7 +53,7 @@ fn main() {
     let child = thread::Builder::new()
         .name("poller".to_string())
         .spawn(move || {
-            connect(creds, todotx, stoprx);
+            poller::connect(creds, todotx, stoprx);
         }).unwrap();
 
     gtk::main();
@@ -91,8 +64,9 @@ fn receive() -> glib::Continue {
     GLOBAL.with(|global| {
         if let Some((ref ui, ref rx, ref mut todo)) = *global.borrow_mut() {
             while let Ok(msg) = rx.try_recv() { match msg {
-                UIMessage::Tasks(ref tasks) => update_list(ui, tasks, todo),
-                UIMessage::Status(st) => update_status(ui, st),
+                Message::Tasks(ref tasks) => update_list(ui, tasks, todo),
+                Message::Status(st) => update_status(ui, st),
+                Message::Quit => panic!("Main thread got a Quit message!"),
             }}
         }
     });
@@ -151,84 +125,4 @@ fn update_status(ui: &Builder, status: &'static str) {
 
 fn delete_task(task: String) {
     println!("Should delete '{}'", task);
-}
-
-fn connect(creds: Creds, tx: Sender<UIMessage>, rx: Receiver<Message>) {
-    loop {
-        println!("Trying {}:{}... ", creds.host, creds.port);
-        tx.send(UIMessage::Status("Connecting..."));
-        match get_connection(&creds) {
-            Err(e) => {
-                println!("  {:?}", e);
-                std::thread::sleep(Duration::new(SLEEP, 0));
-            },
-            Ok(mut imap) => {
-                tx.send(UIMessage::Status("Connected"));
-                poll_imap(&mut imap, &tx, &rx);
-                break;
-            },
-        };
-        std::thread::sleep(Duration::new(SLEEP, 0));
-    }
-}
-
-fn poll_imap(
-    mut imap: &mut IMAPStream,
-    tx: &Sender<UIMessage>,
-    rx: &Receiver<Message>
-) {
-    loop {
-        match get_tasks(&mut imap) {
-            Ok(tasks) => { tx.send(UIMessage::Tasks(tasks)); },
-            Err(e) => println!("Error getting tasks: {}", e),
-        }
-
-        if let Ok(Message::Quit) = rx.try_recv() {
-            // Since we are exiting, no big deal if it fails
-            let _ = imap.logout();
-            break;
-        }
-        std::thread::sleep(Duration::new(SLEEP, 0));
-    }
-}
-
-fn get_connection(creds: &Creds) -> Result<IMAPStream> {
-    let mut imap = try!(IMAPStream::connect(
-        (&creds.host[..], creds.port),
-        SslContext::new(SslMethod::Sslv23).ok()
-    ));
-    try!(imap.login(&creds.user, &creds.pass));
-    Ok(imap)
-}
-
-fn get_tasks(mut imap: &mut IMAPStream) -> Result<HashSet<Task>> {
-    let mut tasks: HashSet<Task> = HashSet::new();
-    let mbox = try!(imap.select(MBOX));
-    for seqn in 1..mbox.exists+1 {
-        let seq = &seqn.to_string();
-        let uid = try!(get_uid(imap, seq));
-        let subj = try!(get_subj(imap, seq));
-        tasks.insert(Task {title: subj, uid: uid});
-    }
-//    println!("{:?}", tasks);
-    Ok(tasks)
-}
-
-fn get_uid(imap: &mut IMAPStream, seq: &str) -> Result<u64> {
-    let resp = try!(imap.fetch(seq, "uid"));
-    let uid = try!(parser::extract_info(r".* FETCH \(UID (\d+)\)", &resp[0]));
-    let uid = try!(uid.parse());
-    Ok(uid)
-}
-
-fn get_subj(imap: &mut IMAPStream, seq: &str) -> Result<String> {
-    let lines = try!(imap.fetch(seq, "body[header]"));
-
-    let mut headers = String::new();
-    for line in lines {
-        headers = headers + &line;
-    }
-
-    let subj = try!(parser::extract_info(r"Subject: (.*)\r", &headers));
-    Ok(subj)
 }
