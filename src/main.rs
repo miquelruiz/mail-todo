@@ -7,8 +7,8 @@ extern crate glib;
 extern crate imap;
 use imap::client::IMAPStream;
 
-extern crate notify_rust;
-use notify_rust::Notification;
+extern crate mail_todo;
+use mail_todo::notifier;
 
 extern crate openssl;
 use openssl::ssl::{SslContext, SslMethod};
@@ -29,8 +29,6 @@ use std::time::Duration;
 
 const MUTT: &'static str = ".mutt";
 const CONF: &'static str = "miquelruiz.net";
-const ICON: &'static str = "task-due";
-const NAME: &'static str = "Mail-todo";
 const MBOX: &'static str = "ToDo";
 const SLEEP: u64 = 10;
 
@@ -84,7 +82,7 @@ fn main() {
         Inhibit(false)
     });
 
-    let icon = StatusIcon::new_from_icon_name(ICON);
+    let icon = StatusIcon::new_from_icon_name(mail_todo::ICON);
     icon.connect_activate(move |_| {
         window.set_visible(!window.is_visible());
     });
@@ -159,7 +157,7 @@ fn update_list(
     lb.show_all();
 
     if ntasks != todo.len() {
-        notify(todo.len());
+        notifier::notify(todo.len());
     }
 }
 
@@ -282,14 +280,4 @@ fn get_subj(imap: &mut IMAPStream, seq: &str) -> Result<String> {
 
     let subj = try!(extract_info(r"Subject: (.*)\r", &headers));
     Ok(subj)
-}
-
-fn notify(tasks: usize) {
-    println!("{:?} pending tasks", tasks);
-    if let Err(e) = Notification::new()
-        .summary(NAME)
-        .body(&format!("{} tasks pending", tasks))
-        .icon(ICON)
-        .timeout(5000)
-        .show() { println!("Couldn't show notification: {:?}", e) }
 }
