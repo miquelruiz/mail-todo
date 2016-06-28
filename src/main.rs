@@ -8,31 +8,21 @@ extern crate imap;
 use imap::client::IMAPStream;
 
 extern crate mail_todo;
-use mail_todo::notifier;
+use mail_todo::{notifier, parser, Result};
+use mail_todo::parser::Creds;
 
 extern crate openssl;
 use openssl::ssl::{SslContext, SslMethod};
 
-extern crate regex;
-use regex::Regex;
-
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::error::Error;
-use std::io::prelude::*;
-use std::fs::File;
-use std::path::Path;
-use std::result;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 use std::time::Duration;
 
-const MUTT: &'static str = ".mutt";
-const CONF: &'static str = "miquelruiz.net";
 const MBOX: &'static str = "ToDo";
 const SLEEP: u64 = 10;
 
-type Result<T> = result::Result<T, Box<Error>>;
 
 enum Message {
     Quit,
@@ -41,14 +31,6 @@ enum Message {
 enum UIMessage {
     Tasks(HashSet<Task>),
     Status(&'static str),
-}
-
-#[derive(Debug)]
-struct Creds {
-    user: String,
-    pass: String,
-    host: String,
-    port: u16,
 }
 
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
@@ -94,7 +76,7 @@ fn main() {
     });
     glib::timeout_add(100, receive);
 
-    let creds = get_credentials().unwrap();
+    let creds = parser::get_credentials().unwrap();
     let child = thread::Builder::new()
         .name("poller".to_string())
         .spawn(move || {
@@ -210,37 +192,6 @@ fn poll_imap(
     }
 }
 
-fn get_credentials() -> Result<Creds> {
-    let mut path = try!(std::env::home_dir().ok_or("Can't get home dir"));
-
-    // Build path to config file
-    path.push(MUTT);
-    path.push(CONF);
-
-    let content = try!(read_config_file(path.as_path()));
-    let user = try!(extract_info(r"set imap_user=(\w*)", &content));
-    let pass = try!(extract_info(r"set imap_pass=(\w*)", &content));
-    let host = try!(extract_info(r"set folder=imaps?://(.+):\d+", &content));
-    let port = try!(extract_info(r"set folder=imaps?://.+:(\d+)", &content));
-    let port = try!(port.parse());
-
-    Ok(Creds {user: user, pass: pass, host: host, port: port})
-}
-
-fn read_config_file(path: &Path) -> Result<String> {
-    let mut content = String::new();
-    let mut file = try!(File::open(&path));
-    try!(file.read_to_string(&mut content));
-    Ok(content)
-}
-
-fn extract_info(pattern: &str, text: &str) -> Result<String> {
-    let re = try!(Regex::new(pattern));
-    let cap = try!(re.captures(text).ok_or("Couldn't match"));
-    let xtr = try!(cap.at(1).ok_or("No captures"));
-    Ok(xtr.to_string())
-}
-
 fn get_connection(creds: &Creds) -> Result<IMAPStream> {
     let mut imap = try!(IMAPStream::connect(
         (&creds.host[..], creds.port),
@@ -265,7 +216,7 @@ fn get_tasks(mut imap: &mut IMAPStream) -> Result<HashSet<Task>> {
 
 fn get_uid(imap: &mut IMAPStream, seq: &str) -> Result<u64> {
     let resp = try!(imap.fetch(seq, "uid"));
-    let uid = try!(extract_info(r".* FETCH \(UID (\d+)\)", &resp[0]));
+    let uid = try!(parser::extract_info(r".* FETCH \(UID (\d+)\)", &resp[0]));
     let uid = try!(uid.parse());
     Ok(uid)
 }
@@ -278,6 +229,6 @@ fn get_subj(imap: &mut IMAPStream, seq: &str) -> Result<String> {
         headers = headers + &line;
     }
 
-    let subj = try!(extract_info(r"Subject: (.*)\r", &headers));
+    let subj = try!(parser::extract_info(r"Subject: (.*)\r", &headers));
     Ok(subj)
 }
