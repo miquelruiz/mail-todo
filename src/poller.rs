@@ -38,7 +38,7 @@ fn poll_imap(
     tx: &Sender<Message>,
     rx: &Receiver<Message>
 ) {
-    loop {
+    'main: loop {
         match get_tasks(&mut imap) {
             Ok(tasks) => { if let Err(e) = tx.send(Message::Tasks(tasks)) {
                 panic!("Main thread receiver deallocated: {}", e);
@@ -46,11 +46,11 @@ fn poll_imap(
             Err(e) => println!("Error getting tasks: {}", e),
         }
 
-        if let Ok(Message::Quit) = rx.try_recv() {
-            // Since we are exiting, no big deal if it fails
-            let _ = imap.logout();
-            break;
-        }
+        while let Ok(m) = rx.try_recv() { match m {
+            Message::Quit => { let _ = imap.logout(); break 'main; },
+            Message::Delete(uid) => println!("Should delete {}", uid),
+            m => panic!("Received unexpected message! {:?}", m)
+        }}
         sleep(duration());
     }
 }
