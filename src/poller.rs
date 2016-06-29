@@ -5,15 +5,21 @@ use ::{Creds, Message, parser, Result, Task};
 
 use std::collections::HashSet;
 use std::sync::mpsc::{Receiver, Sender};
+use std::thread;
 use std::thread::sleep;
 use std::time::Duration;
 
 fn duration() -> Duration { Duration::new(::SLEEP, 0) }
 
-pub fn connect(creds: Creds, tx: Sender<Message>, rx: Receiver<Message>) {
+pub fn connect(
+    creds: Creds,
+    ui: Sender<Message>,
+    wake: Sender<Message>,
+    rx: Receiver<Message>
+) {
     loop {
         println!("Trying {}:{}... ", creds.host, creds.port);
-        if let Err(e) = tx.send(Message::Status("Connecting...")) {
+        if let Err(e) = ui.send(Message::Status("Connecting...")) {
             println!("Couldn't set the status: {}", e);
         }
         match get_connection(&creds) {
@@ -22,10 +28,10 @@ pub fn connect(creds: Creds, tx: Sender<Message>, rx: Receiver<Message>) {
                 sleep(duration());
             },
             Ok(mut imap) => {
-                if let Err(e) = tx.send(Message::Status("Connected")) {
+                if let Err(e) = ui.send(Message::Status("Connected")) {
                     println!("Couldn't set the status: {}", e);
                 }
-                poll_imap(&mut imap, &tx, &rx);
+                poll_imap(&mut imap, ui, wake, rx);
                 break;
             },
         };
@@ -35,24 +41,26 @@ pub fn connect(creds: Creds, tx: Sender<Message>, rx: Receiver<Message>) {
 
 fn poll_imap(
     mut imap: &mut IMAPStream,
-    tx: &Sender<Message>,
-    rx: &Receiver<Message>
+    ui: Sender<Message>,
+    wake: Sender<Message>,
+    rx: Receiver<Message>
 ) {
-    'main: loop {
-        match get_tasks(&mut imap) {
-            Ok(tasks) => { if let Err(e) = tx.send(Message::Tasks(tasks)) {
+    let child = thread::Builder::new()
+        .name("awakener".to_string())
+        .spawn(move || loop { wake.send(Message::Awake); sleep(duration()); })
+        .unwrap();
+
+    while let Ok(m) = rx.recv() { match m {
+        Message::Quit => { let _ = imap.logout(); break; },
+        Message::Delete(uid) => println!("Should delete {}", uid),
+        Message::Awake => match get_tasks(&mut imap) {
+            Ok(tasks) => { if let Err(e) = ui.send(Message::Tasks(tasks)) {
                 panic!("Main thread receiver deallocated: {}", e);
             }},
             Err(e) => println!("Error getting tasks: {}", e),
-        }
-
-        while let Ok(m) = rx.try_recv() { match m {
-            Message::Quit => { let _ = imap.logout(); break 'main; },
-            Message::Delete(uid) => println!("Should delete {}", uid),
-            m => panic!("Received unexpected message! {:?}", m)
-        }}
-        sleep(duration());
-    }
+        },
+        m => panic!("Received unexpected message! {:?}", m)
+    }}
 }
 
 fn get_connection(creds: &Creds) -> Result<IMAPStream> {

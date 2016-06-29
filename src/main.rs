@@ -43,8 +43,9 @@ fn main() {
         window.set_visible(!window.is_visible());
     });
 
+    let imap_tx2 = imap_tx.clone();
     GLOBAL.with(move |global| {
-        *global.borrow_mut() = Some((builder, imap_tx, ui_rx))
+        *global.borrow_mut() = Some((builder, imap_tx2, ui_rx))
     });
     glib::timeout_add(100, receive);
 
@@ -52,7 +53,7 @@ fn main() {
     let child = thread::Builder::new()
         .name("poller".to_string())
         .spawn(move || {
-            poller::connect(creds, ui_tx, imap_rx);
+            poller::connect(creds, ui_tx, imap_tx, imap_rx);
         }).unwrap();
 
     gtk::main();
