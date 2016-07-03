@@ -52,7 +52,7 @@ fn poll_imap(
 
     while let Ok(m) = rx.recv() { match m {
         Message::Quit => { let _ = imap.logout(); break; },
-        Message::Delete(uid) => println!("Should delete {}", uid),
+        Message::Delete(uid) => delete_task(&mut imap, uid),
         Message::Awake => match get_tasks(&mut imap) {
             Ok(tasks) => { if let Err(e) = ui.send(Message::Tasks(tasks)) {
                 panic!("Main thread receiver deallocated: {}", e);
@@ -102,4 +102,8 @@ fn get_subj(imap: &mut IMAPStream, seq: &str) -> Result<String> {
 
     let subj = try!(parser::extract_info(r"Subject: (.*)\r", &headers));
     Ok(subj)
+}
+
+fn delete_task(imap: &mut IMAPStream, uid: u64) {
+    println!("Should delete {}", uid);
 }
