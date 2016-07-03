@@ -119,7 +119,12 @@ fn update_list(
 
     let new = lb.get_children().len();
     if old != new {
-        notifier::notify(new);
+        println!("{:?} pending tasks", new);
+        notifier::notify(
+            &format!("{} tasks pending", new),
+            mail_todo::ICON,
+            mail_todo::NOTIF_TIMEOUT,
+        );
     }
 }
 

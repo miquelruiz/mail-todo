@@ -12,6 +12,7 @@ pub const ICON: &'static str = "task-due";
 pub const MBOX: &'static str = "ToDo";
 pub const MUTT: &'static str = ".mutt";
 pub const NAME: &'static str = "Mail-todo";
+pub const NOTIF_TIMEOUT: i32 = 5000;
 pub const SLEEP: u64 = 10;
 
 pub type Result<T> = std::result::Result<T, Box<std::error::Error>>;
