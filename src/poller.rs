@@ -111,6 +111,7 @@ fn get_subj<T: Read+Write>(imap: &mut Client<T>, seq: &str) -> Result<String> {
     Ok(subj)
 }
 
-fn delete_task<T>(imap: &mut Client<T>, uid: u64) {
-    println!("Should delete {}", uid);
+fn delete_task<T: Read+Write>(imap: &mut Client<T>, uid: u64) {
+    imap.uid_store(&format!("{}", uid), "+FLAGS (\\Deleted)");
+    imap.expunge();
 }
