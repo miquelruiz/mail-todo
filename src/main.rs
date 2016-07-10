@@ -7,7 +7,7 @@ use gtk::{
 extern crate glib;
 
 extern crate mail_todo;
-use mail_todo::{Message, notifier, parser, poller, Task};
+use mail_todo::{Message, notifier, parser, poker, poller, Task};
 
 use std::cell::RefCell;
 use std::collections::HashSet;
@@ -52,14 +52,20 @@ fn main() {
     glib::timeout_add(100, receive);
 
     let creds = parser::get_credentials().unwrap();
-    let child = thread::Builder::new()
+    let poller = thread::Builder::new()
         .name("poller".to_string())
         .spawn(move || {
             poller::connect(creds, ui_tx, imap_tx, imap_rx);
         }).unwrap();
 
+    let poker = thread::Builder::new()
+        .name("poker".to_string())
+        .spawn(move || {
+            poker::start();
+        }).unwrap();
+
     gtk::main();
-    let _ = child.join();
+    let _ = poller.join();
 }
 
 fn receive() -> glib::Continue {

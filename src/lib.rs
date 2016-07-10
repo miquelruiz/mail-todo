@@ -2,9 +2,11 @@ extern crate imap;
 extern crate notify_rust;
 extern crate openssl;
 extern crate regex;
+extern crate time;
 
 pub mod notifier;
 pub mod parser;
+pub mod poker;
 pub mod poller;
 
 pub const CONF: &'static str = "miquelruiz.net";

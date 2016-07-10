@@ -9,9 +9,10 @@ authors = [ "Miquel Ruiz <mruiz@cpan.org>" ]
 glib = "*"
 #imap = "0.0.6"
 imap = { git = "https://github.com/miquelruiz/rust-imap.git" }
+notify-rust = "*"
 openssl = "*"
 regex = "*"
-notify-rust = "*"
+time = "*"
 
 [dependencies.gtk]
 version = "*"
