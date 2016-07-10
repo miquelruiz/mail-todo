@@ -4,7 +4,7 @@ version = "0.0.1"
 dependencies = [
  "glib 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "gtk 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "imap 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "imap 0.0.6 (git+https://github.com/miquelruiz/rust-imap.git)",
  "notify-rust 3.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "openssl 0.7.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex 0.1.71 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -248,7 +248,7 @@ dependencies = [
 [[package]]
 name = "imap"
 version = "0.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/miquelruiz/rust-imap.git#ed03acf07d5090cef724197c0ad0260d9e04af26"
 dependencies = [
  "openssl 0.7.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex 0.1.71 (registry+https://github.com/rust-lang/crates.io-index)",

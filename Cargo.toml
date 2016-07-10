@@ -7,8 +7,8 @@ authors = [ "Miquel Ruiz <mruiz@cpan.org>" ]
 [dependencies]
 
 glib = "*"
-imap = "0.0.6"
-#imap = { git = "https://github.com/miquelruiz/rust-imap.git" }
+#imap = "0.0.6"
+imap = { git = "https://github.com/miquelruiz/rust-imap.git" }
 openssl = "*"
 regex = "*"
 notify-rust = "*"

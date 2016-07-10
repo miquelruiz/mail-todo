@@ -1,13 +1,16 @@
-use imap::client::IMAPStream;
-use openssl::ssl::{SslContext, SslMethod};
+use imap::client::Client;
+use openssl::ssl::{SslContext, SslMethod, SslStream};
 
 use ::{Creds, Message, parser, Result, Task};
 
 use std::collections::HashSet;
+use std::net::TcpStream;
+use std::io::{Read, Write};
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 use std::thread::sleep;
 use std::time::Duration;
+
 
 fn duration() -> Duration { Duration::new(::SLEEP, 0) }
 
@@ -39,15 +42,18 @@ pub fn connect(
     }
 }
 
-fn poll_imap(
-    mut imap: &mut IMAPStream,
+fn poll_imap<T: Read+Write>(
+    mut imap: &mut Client<T>,
     ui: Sender<Message>,
     wake: Sender<Message>,
     rx: Receiver<Message>
 ) {
-    let child = thread::Builder::new()
+    let _ = thread::Builder::new()
         .name("awakener".to_string())
-        .spawn(move || loop { wake.send(Message::Awake); sleep(duration()); })
+        .spawn(move || loop {
+            let _ = wake.send(Message::Awake);
+            sleep(duration());
+        })
         .unwrap();
 
     while let Ok(m) = rx.recv() { match m {
@@ -63,16 +69,17 @@ fn poll_imap(
     }}
 }
 
-fn get_connection(creds: &Creds) -> Result<IMAPStream> {
-    let mut imap = try!(IMAPStream::connect(
+fn get_connection(creds: &Creds) -> Result<Client<SslStream<TcpStream>>> {
+    let ssl = try!(SslContext::new(SslMethod::Sslv23));
+    let mut imap = try!(Client::secure_connect(
         (&creds.host[..], creds.port),
-        SslContext::new(SslMethod::Sslv23).ok()
+        ssl,
     ));
     try!(imap.login(&creds.user, &creds.pass));
     Ok(imap)
 }
 
-fn get_tasks(mut imap: &mut IMAPStream) -> Result<HashSet<Task>> {
+fn get_tasks<T: Read+Write>(mut imap: &mut Client<T>) -> Result<HashSet<Task>> {
     let mut tasks: HashSet<Task> = HashSet::new();
     let mbox = try!(imap.select(::MBOX));
     for seqn in 1..mbox.exists+1 {
@@ -85,14 +92,14 @@ fn get_tasks(mut imap: &mut IMAPStream) -> Result<HashSet<Task>> {
     Ok(tasks)
 }
 
-fn get_uid(imap: &mut IMAPStream, seq: &str) -> Result<u64> {
+fn get_uid<T: Read+Write>(imap: &mut Client<T>, seq: &str) -> Result<u64> {
     let resp = try!(imap.fetch(seq, "uid"));
     let uid = try!(parser::extract_info(r".* FETCH \(UID (\d+)\)", &resp[0]));
     let uid = try!(uid.parse());
     Ok(uid)
 }
 
-fn get_subj(imap: &mut IMAPStream, seq: &str) -> Result<String> {
+fn get_subj<T: Read+Write>(imap: &mut Client<T>, seq: &str) -> Result<String> {
     let lines = try!(imap.fetch(seq, "body[header]"));
 
     let mut headers = String::new();
@@ -104,6 +111,6 @@ fn get_subj(imap: &mut IMAPStream, seq: &str) -> Result<String> {
     Ok(subj)
 }
 
-fn delete_task(imap: &mut IMAPStream, uid: u64) {
+fn delete_task<T>(imap: &mut Client<T>, uid: u64) {
     println!("Should delete {}", uid);
 }
