@@ -1,3 +1,6 @@
+extern crate getopts;
+use getopts::Options;
+
 extern crate gtk;
 use gtk::prelude::*;
 use gtk::{
@@ -11,6 +14,7 @@ use mail_todo::{Message, notifier, parser, poker, poller, Task};
 
 use std::cell::RefCell;
 use std::collections::HashSet;
+use std::env;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 
@@ -21,6 +25,20 @@ thread_local!(
 );
 
 fn main() {
+    let args: Vec<String> = env::args().collect();
+    let mut opts = Options::new();
+    opts.optflag("", "todo", "Poll the mail server for ToDo's");
+    opts.optflag("", "poke", "Show notifications about events");
+
+    let matches = match opts.parse(&args[1..]) {
+        Ok(m)  => m,
+        Err(e) => panic!(e.to_string()),
+    };
+
+    if !matches.opts_present(&["poke".to_string(), "todo".to_string()]) {
+        panic!("Either --poke or --todo are required");
+    }
+
     if gtk::init().is_err() {
         panic!("Failed to initialize GTK");
     }
@@ -51,21 +69,26 @@ fn main() {
     });
     glib::timeout_add(100, receive);
 
-    let creds = parser::get_credentials().unwrap();
-    let poller = thread::Builder::new()
-        .name("poller".to_string())
-        .spawn(move || {
-            poller::connect(creds, ui_tx, imap_tx, imap_rx);
-        }).unwrap();
+    if matches.opt_present("todo") {
+        let creds = parser::get_credentials().unwrap();
+        let poller = thread::Builder::new()
+            .name("poller".to_string())
+            .spawn(move || {
+                poller::connect(creds, ui_tx, imap_tx, imap_rx);
+            }).unwrap();
+    }
 
-    let poker = thread::Builder::new()
-        .name("poker".to_string())
-        .spawn(move || {
-            poker::start();
-        }).unwrap();
+    if matches.opt_present("poke") {
+        let poker = thread::Builder::new()
+            .name("poker".to_string())
+            .spawn(move || {
+                poker::start();
+            }).unwrap();
+    }
+
 
     gtk::main();
-    let _ = poller.join();
+//    let _ = poller.join();
 }
 
 fn receive() -> glib::Continue {

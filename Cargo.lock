@@ -2,6 +2,7 @@
 name = "mail-todo"
 version = "0.0.1"
 dependencies = [
+ "getopts 0.2.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "glib 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "gtk 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "imap 0.0.6 (git+https://github.com/miquelruiz/rust-imap.git)",
@@ -148,6 +149,11 @@ dependencies = [
  "pango-sys 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "pkg-config 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
+
+[[package]]
+name = "getopts"
+version = "0.2.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "gio"
