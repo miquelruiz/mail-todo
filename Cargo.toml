@@ -13,6 +13,7 @@ imap = { git = "https://github.com/miquelruiz/rust-imap.git" }
 notify-rust = "*"
 openssl = "*"
 regex = "*"
+rust-sqlite = "*"
 time = "*"
 
 [dependencies.gtk]

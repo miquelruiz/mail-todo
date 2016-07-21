@@ -1,3 +1,6 @@
+extern crate sqlite3;
+use sqlite3::{DatabaseConnection}
+
 use ::notifier::notify;
 
 use std::thread::sleep;
@@ -6,11 +9,26 @@ use std::time::Duration;
 use time;
 use time::Tm;
 
+#[derive(Debug)]
+struct Entry {
+    id: i32,
+    time: String,
+    msg: String,
+}
 
 fn duration() -> Duration { Duration::new(::SLEEP, 0) }
 
 pub fn start() {
-    let times = vec!("23:05", "23:04");
+    loop {
+        match DatabaseConnection::in_memory() {
+            Ok(conn) => runit(conn),
+            Err(e)   => println!("Error connecting to DB: {}", e.to_string()),
+        }
+        sleep(duration());
+    }
+}
+
+fn runit (conn: DatabaseConnection) {
     loop {
         let now = time::now();
         for time in &times {
