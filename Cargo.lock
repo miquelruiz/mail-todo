@@ -248,7 +248,7 @@ dependencies = [
 [[package]]
 name = "imap"
 version = "0.0.6"
-source = "git+https://github.com/miquelruiz/rust-imap.git#a481c6f0c7364259d49450406a80b9b78cdaad70"
+source = "git+https://github.com/miquelruiz/rust-imap.git#0eaf3709e645238c0ff50e4e9f400fe390edff48"
 dependencies = [
  "openssl 0.7.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex 0.1.71 (registry+https://github.com/rust-lang/crates.io-index)",
