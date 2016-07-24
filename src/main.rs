@@ -87,6 +87,7 @@ fn update_list(
     // over the children of the listbox because it returns
     // Vec<Widget> instead of Vec<ListBoxRow>, and get_child is not
     // defined on Widget. So fuck you.
+    // https://github.com/gtk-rs/gtk/issues/367
     for row in lb.get_children() {
         row.destroy();
         old += 1;
