@@ -48,17 +48,24 @@ fn poll_imap<T: Read+Write>(
     wake: Sender<Message>,
     rx: Receiver<Message>
 ) {
+    let wake2 = wake.clone();
     let _ = thread::Builder::new()
         .name("awakener".to_string())
         .spawn(move || loop {
-            let _ = wake.send(Message::Awake);
+            let _ = wake2.send(Message::Awake);
             sleep(duration());
         })
         .unwrap();
 
     while let Ok(m) = rx.recv() { match m {
-        Message::Quit => { let _ = imap.logout(); break; },
-        Message::Delete(uid) => delete_task(&mut imap, uid),
+        Message::Quit => {
+            let _ = imap.logout();
+            break;
+        },
+        Message::Delete(uid) => {
+            delete_task(&mut imap, uid);
+            let _ = wake.send(Message::Awake);
+        }
         Message::Awake => match get_tasks(&mut imap) {
             Ok(tasks) => { if let Err(e) = ui.send(Message::Tasks(tasks)) {
                 panic!("Main thread receiver deallocated: {}", e);
