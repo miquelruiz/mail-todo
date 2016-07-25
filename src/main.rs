@@ -1,6 +1,8 @@
 extern crate gtk;
 use gtk::prelude::*;
-use gtk::{Builder, CheckButton, ListBox, Statusbar, StatusIcon, Window};
+use gtk::{
+    Builder, CheckButton, ListBox, ListBoxRow, Statusbar, StatusIcon, Window
+};
 
 extern crate glib;
 
@@ -79,34 +81,44 @@ fn update_list(
     tx: &Sender<Message>,
 ) {
     let lb: ListBox = ui.get_object("content").unwrap();
-    let mut tasks = tasks.iter().cloned().collect::<Vec<_>>();
-    tasks.sort_by(|a, b| a.uid.cmp(&b.uid));
-    let mut old = 0;
+    let mut notify = false;
 
-    // This is incredibly nasty, but I'm not fucking able to loop
-    // over the children of the listbox because it returns
-    // Vec<Widget> instead of Vec<ListBoxRow>, and get_child is not
-    // defined on Widget. So fuck you.
-    // https://github.com/gtk-rs/gtk/issues/367
-    for row in lb.get_children() {
-        row.destroy();
-        old += 1;
+    // titles will serve to keep track of what's in the UI and what's not
+    let mut titles: HashSet<&str> = HashSet::new();
+    for t in tasks.iter() {
+        titles.insert(&t.title);
     }
 
-    // This is the ideal implementation that doesn't fucking work
-    //for task in todo.difference(&tasks.clone()) {
-    //    for row in lb.get_children() {
-    //        let check = row.get_child().unwrap();
-    //        let label = check.get_label().unwrap();
-    //        if label == task.title {
-    //            row.destroy();
-    //        }
-    //    }
-    //}
+    for wrow in lb.get_children() {
+        let row: ListBoxRow = wrow.downcast().unwrap();
+        let wcheck = row.get_child().unwrap();
+        let check: CheckButton = wcheck.downcast().unwrap();
+        let label = check.get_label().unwrap();
 
+        if !titles.contains::<str>(&label)  {
+            // If the row is not in the titles, needs to be deleted
+            notify = true;
+            row.destroy();
+        } else {
+            // If the row is in the titles, delete from titles so it's not
+            // added again
+            titles.remove::<str>(&label);
+        }
+    }
+
+    // loop over the tasks because the contain the uid's
     for task in tasks.iter() {
+        // If the task is not in the titles, means we've already seen it in
+        // the interface
+        if !titles.contains::<str>(&task.title) {
+            continue
+        }
+
+        notify = true;
         let check = CheckButton::new_with_label(&task.title);
         lb.add(&check);
+
+        // copy here the uid so the closure does not reference the task
         let uid = task.uid;
         let tx = tx.clone();
         check.connect_toggled(move |_|
@@ -118,11 +130,9 @@ fn update_list(
 
     lb.show_all();
 
-    let new = lb.get_children().len();
-    if old != new {
-        println!("{:?} pending tasks", new);
+    if notify {
         notifier::notify(
-            &format!("{} tasks pending", new),
+            &format!("{} tasks pending", tasks.len()),
             mail_todo::ICON,
             mail_todo::NOTIF_TIMEOUT,
         );
