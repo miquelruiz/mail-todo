@@ -6,6 +6,10 @@ use gtk::{
 
 extern crate glib;
 
+#[macro_use]
+extern crate log;
+extern crate env_logger;
+
 extern crate mail_todo;
 use mail_todo::{Message, notifier, parser, poller, Task};
 
@@ -25,6 +29,10 @@ fn main() {
         panic!("Failed to initialize GTK");
     }
 
+    if let Err(e) = env_logger::init() {
+        panic!("Couldn't initialize logger: {:?}", e);
+    }
+
     let (imap_tx, imap_rx) = channel::<Message>();
     let (ui_tx, ui_rx)     = channel::<Message>();
 
@@ -34,7 +42,7 @@ fn main() {
     let stop = imap_tx.clone();
     let window: Window = builder.get_object("window").unwrap();
     window.connect_delete_event(move |_, _| {
-        println!("Closing...");
+        info!("Closing...");
         let _ = stop.send(Message::Quit).unwrap();
         gtk::main_quit();
         Inhibit(false)
@@ -123,7 +131,7 @@ fn update_list(
         let tx = tx.clone();
         check.connect_toggled(move |_|
             if let Err(e) = tx.send(Message::Delete(uid)) {
-                println!("Couldn't delete {}: {}", uid, e);
+                error!("Couldn't delete {}: {}", uid, e);
             }
         );
     }

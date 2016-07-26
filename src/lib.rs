@@ -3,6 +3,9 @@ extern crate notify_rust;
 extern crate openssl;
 extern crate regex;
 
+#[macro_use]
+extern crate log;
+
 pub mod notifier;
 pub mod parser;
 pub mod poller;

@@ -21,18 +21,18 @@ pub fn connect(
     rx: Receiver<Message>
 ) {
     loop {
-        println!("Trying {}:{}... ", creds.host, creds.port);
+        info!("Trying {}:{}... ", creds.host, creds.port);
         if let Err(e) = ui.send(Message::Status("Connecting...")) {
-            println!("Couldn't set the status: {}", e);
+            error!("Couldn't set the status: {}", e);
         }
         match get_connection(&creds) {
             Err(e) => {
-                println!("  {:?}", e);
+                error!("  {:?}", e);
                 sleep(duration());
             },
             Ok(mut imap) => {
                 if let Err(e) = ui.send(Message::Status("Connected")) {
-                    println!("Couldn't set the status: {}", e);
+                    error!("Couldn't set the status: {}", e);
                 }
                 poll_imap(&mut imap, ui, wake, rx);
                 break;
@@ -70,7 +70,7 @@ fn poll_imap<T: Read+Write>(
             Ok(tasks) => { if let Err(e) = ui.send(Message::Tasks(tasks)) {
                 panic!("Main thread receiver deallocated: {}", e);
             }},
-            Err(e) => println!("Error getting tasks: {}", e),
+            Err(e) => error!("Error getting tasks: {}", e),
         },
         m => panic!("Received unexpected message! {:?}", m)
     }}
@@ -95,7 +95,7 @@ fn get_tasks<T: Read+Write>(mut imap: &mut Client<T>) -> Result<HashSet<Task>> {
         let subj = try!(get_subj(imap, seq));
         tasks.insert(Task {title: subj, uid: uid});
     }
-//    println!("{:?}", tasks);
+    debug!("{:?}", tasks);
     Ok(tasks)
 }
 
