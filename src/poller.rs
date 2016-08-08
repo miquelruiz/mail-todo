@@ -70,7 +70,11 @@ fn poll_imap<T: Read+Write>(
             Ok(tasks) => { if let Err(e) = ui.send(Message::Tasks(tasks)) {
                 panic!("Main thread receiver deallocated: {}", e);
             }},
-            Err(e) => error!("Error getting tasks: {}", e),
+            Err(e) => {
+                error!("Error getting tasks: {}", e);
+                // If something goes wrong, crap out and force reconnection
+                break;
+            },
         },
         m => panic!("Received unexpected message! {:?}", m)
     }}
