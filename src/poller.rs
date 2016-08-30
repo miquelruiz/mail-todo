@@ -34,8 +34,8 @@ pub fn connect(
                 if let Err(e) = ui.send(Message::Status("Connected")) {
                     error!("Couldn't set the status: {}", e);
                 }
-                poll_imap(&mut imap, ui, wake, rx);
-                break;
+                poll_imap(&mut imap, &ui, &wake, &rx);
+                info!("Coming back from polling");
             },
         };
         sleep(duration());
@@ -44,9 +44,9 @@ pub fn connect(
 
 fn poll_imap<T: Read+Write>(
     mut imap: &mut Client<T>,
-    ui: Sender<Message>,
-    wake: Sender<Message>,
-    rx: Receiver<Message>
+    ui: &Sender<Message>,
+    wake: &Sender<Message>,
+    rx: &Receiver<Message>
 ) {
     let wake2 = wake.clone();
     let _ = thread::Builder::new()
@@ -78,6 +78,7 @@ fn poll_imap<T: Read+Write>(
         },
         m => panic!("Received unexpected message! {:?}", m)
     }}
+    info!("Exiting poll_imap");
 }
 
 fn get_connection(creds: &Creds) -> Result<Client<SslStream<TcpStream>>> {
