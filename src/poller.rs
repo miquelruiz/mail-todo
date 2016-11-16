@@ -52,11 +52,11 @@ fn poll_imap<T: Read+Write>(
     rx: &Receiver<Message>
 ) -> bool {
     let mut reconnect = true;
-    let wake2 = wake.clone();
+    let wake = wake.clone();
     let _ = thread::Builder::new()
         .name("awakener".to_string())
         .spawn(move || loop {
-            let _ = wake2.send(Message::Awake);
+            let _ = wake.send(Message::Awake);
             sleep(duration());
         })
         .unwrap();
@@ -69,7 +69,6 @@ fn poll_imap<T: Read+Write>(
         },
         Message::Delete(uid) => {
             delete_task(&mut imap, uid);
-            let _ = wake.send(Message::Awake);
         }
         Message::Awake => match get_tasks(&mut imap) {
             Ok(tasks) => { if let Err(e) = ui.send(Message::Tasks(tasks)) {
