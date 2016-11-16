@@ -41,22 +41,8 @@
             <property name="homogeneous">True</property>
             <property name="layout_style">end</property>
             <child>
-              <object class="GtkCheckButton" id="answer">
-                <property name="label" translatable="yes">answer</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">False</property>
-                <property name="draw_indicator">True</property>
-              </object>
-              <packing>
-                <property name="expand">True</property>
-                <property name="fill">True</property>
-                <property name="position">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="ok">
-                <property name="label">gtk-ok</property>
+              <object class="GtkButton" id="delete">
+                <property name="label">gtk-delete</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
@@ -104,6 +90,9 @@
           </packing>
         </child>
       </object>
+    </child>
+    <child type="titlebar">
+      <placeholder/>
     </child>
   </object>
 </interface>

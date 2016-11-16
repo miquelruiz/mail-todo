@@ -1,7 +1,14 @@
 extern crate gtk;
 use gtk::prelude::*;
 use gtk::{
-    Builder, CheckButton, ListBox, ListBoxRow, Statusbar, StatusIcon, Window
+    Builder,
+    Button,
+    CheckButton,
+    ListBox,
+    ListBoxRow,
+    Statusbar,
+    StatusIcon,
+    Window,
 };
 
 extern crate glib;
@@ -53,6 +60,11 @@ fn main() {
         window.set_visible(!window.is_visible());
     });
 
+    let del: Button = builder.get_object("delete").unwrap();
+    del.connect_clicked(|_| {
+        destroy_checked();
+    });
+
     let imap_tx2 = imap_tx.clone();
     GLOBAL.with(move |global| {
         *global.borrow_mut() = Some((builder, imap_tx2, ui_rx))
@@ -67,6 +79,7 @@ fn main() {
         }).unwrap();
 
     gtk::main();
+    info!("Waiting for all threads to finish");
     let _ = child.join();
 }
 
@@ -129,9 +142,10 @@ fn update_list(
         // copy here the uid so the closure does not reference the task
         let uid = task.uid;
         let tx = tx.clone();
-        check.connect_toggled(move |_|
+        info!("Storing uid {} in destroy closure", uid);
+        check.connect_destroy(move |_|
             if let Err(e) = tx.send(Message::Delete(uid)) {
-                error!("Couldn't delete {}: {}", uid, e);
+                error!("Couldn't send delete message {}: {}", uid, e);
             }
         );
     }
@@ -151,4 +165,24 @@ fn update_status(ui: &Builder, status: &'static str) {
     let bar: Statusbar = ui.get_object("status").unwrap();
     let ctx = bar.get_context_id("whatever?");
     let _ = bar.push(ctx, status);
+}
+
+fn destroy_checked() {
+    GLOBAL.with(|global| {
+        if let Some((ref ui, _, _)) = *global.borrow_mut() {
+            let lb: ListBox = ui.get_object("content").unwrap();
+            for wrow in lb.get_children() {
+                let row: ListBoxRow = wrow.downcast().unwrap();
+                let wcheck = row.get_child().unwrap();
+                let check: CheckButton = wcheck.downcast().unwrap();
+                let label = check.get_label().unwrap();
+                info!("Considering '{}'", label);
+
+                if check.get_active() {
+                    info!("Destroying '{}'", label);
+                    row.destroy();
+                }
+            }
+        }
+    });
 }
