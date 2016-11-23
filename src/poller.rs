@@ -27,7 +27,7 @@ pub fn connect(
         }
         match get_connection(&creds) {
             Err(e) => {
-                error!("  {:?}", e);
+                error!("Error getting connection: {:?}", e);
                 sleep(duration());
             },
             Ok(mut imap) => {
