@@ -88,22 +88,22 @@ fn poll_imap<T: Read+Write>(
 }
 
 fn get_connection(creds: &Creds) -> Result<Client<SslStream<TcpStream>>> {
-    let ssl = try!(SslContext::new(SslMethod::Sslv23));
-    let mut imap = try!(Client::secure_connect(
+    let ssl = SslContext::new(SslMethod::Sslv23)?;
+    let mut imap = Client::secure_connect(
         (&creds.host[..], creds.port),
         ssl,
-    ));
-    try!(imap.login(&creds.user, &creds.pass));
+    )?;
+    imap.login(&creds.user, &creds.pass)?;
     Ok(imap)
 }
 
 fn get_tasks<T: Read+Write>(mut imap: &mut Client<T>) -> Result<HashSet<Task>> {
     let mut tasks: HashSet<Task> = HashSet::new();
-    let mbox = try!(imap.select(::MBOX));
+    let mbox = imap.select(::MBOX)?;
     for seqn in 1..mbox.exists+1 {
         let seq = &seqn.to_string();
-        let uid = try!(get_uid(imap, seq));
-        let subj = try!(get_subj(imap, seq));
+        let uid = get_uid(imap, seq)?;
+        let subj = get_subj(imap, seq)?;
         tasks.insert(Task {title: subj, uid: uid});
     }
     debug!("{:?}", tasks);
@@ -111,21 +111,21 @@ fn get_tasks<T: Read+Write>(mut imap: &mut Client<T>) -> Result<HashSet<Task>> {
 }
 
 fn get_uid<T: Read+Write>(imap: &mut Client<T>, seq: &str) -> Result<u64> {
-    let resp = try!(imap.fetch(seq, "uid"));
-    let uid = try!(parser::extract_info(r".* FETCH \(UID (\d+)\)", &resp[0]));
-    let uid = try!(uid.parse());
+    let resp = imap.fetch(seq, "uid")?;
+    let uid = parser::extract_info(r".* FETCH \(UID (\d+)\)", &resp[0])?;
+    let uid = uid.parse()?;
     Ok(uid)
 }
 
 fn get_subj<T: Read+Write>(imap: &mut Client<T>, seq: &str) -> Result<String> {
-    let lines = try!(imap.fetch(seq, "body[header]"));
+    let lines = imap.fetch(seq, "body[header]")?;
 
     let mut headers = String::new();
     for line in lines {
         headers = headers + &line;
     }
 
-    let subj = try!(parser::extract_info(r"Subject: (.*)\r", &headers));
+    let subj = parser::extract_info(r"Subject: (.*)\r", &headers)?;
     Ok(subj)
 }
 
