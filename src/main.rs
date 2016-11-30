@@ -88,7 +88,8 @@ fn receive() -> glib::Continue {
         if let Some((ref ui, ref tx, ref rx)) = *global.borrow_mut() {
             while let Ok(msg) = rx.try_recv() { match msg {
                 Message::Tasks(ref tasks) => update_list(ui, tasks, tx),
-                Message::Status(st) => update_status(ui, st),
+                Message::Connected => update_status(ui, "Connected", true),
+                Message::NotConnected => update_status(ui, "Connecting...", false),
                 m => panic!("Main thread got unexpected message! {:?}", m),
             }}
         }
@@ -161,10 +162,13 @@ fn update_list(
     }
 }
 
-fn update_status(ui: &Builder, status: &'static str) {
-    let bar: Statusbar = ui.get_object("status").unwrap();
-    let ctx = bar.get_context_id("whatever?");
-    let _ = bar.push(ctx, status);
+fn update_status(ui: &Builder, status: &'static str, enable_btn: bool) {
+    ui.get_object("status").and_then(|b: Statusbar| {
+        Some(b.push(b.get_context_id("status"), status))
+    });
+    ui.get_object("delete").and_then(
+        |d: Button| Some(d.set_sensitive(enable_btn))
+    );
 }
 
 fn destroy_checked() {

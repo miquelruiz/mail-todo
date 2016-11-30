@@ -22,11 +22,12 @@ pub type Result<T> = std::result::Result<T, Box<std::error::Error>>;
 
 #[derive(Debug)]
 pub enum Message {
-    Quit,
     Awake,
-    Status(&'static str),
-    Tasks(std::collections::HashSet<Task>),
+    Connected,
     Delete(u64),
+    NotConnected,
+    Tasks(std::collections::HashSet<Task>),
+    Quit,
 }
 
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]

@@ -22,7 +22,7 @@ pub fn connect(
 ) {
     loop {
         info!("Trying {}:{}... ", creds.host, creds.port);
-        if let Err(e) = ui.send(Message::Status("Connecting...")) {
+        if let Err(e) = ui.send(Message::NotConnected) {
             error!("Couldn't set the status: {}", e);
         }
         match get_connection(&creds) {
@@ -31,7 +31,7 @@ pub fn connect(
                 sleep(duration());
             },
             Ok(mut imap) => {
-                if let Err(e) = ui.send(Message::Status("Connected")) {
+                if let Err(e) = ui.send(Message::Connected) {
                     error!("Couldn't set the status: {}", e);
                 }
                 if !poll_imap(&mut imap, &ui, &wake, &rx) {
