@@ -1,5 +1,6 @@
 use imap::client::Client;
 use openssl::ssl::{SslContext, SslMethod, SslStream};
+use libc::c_int;
 
 use ::{Creds, Message, parser, Result, Task};
 
@@ -11,6 +12,10 @@ use std::thread;
 use std::thread::sleep;
 use std::time::Duration;
 
+#[link(name = "resolv")]
+extern {
+    fn res_init() -> c_int;
+}
 
 fn duration() -> Duration { Duration::new(::SLEEP, 0) }
 
@@ -44,6 +49,8 @@ pub fn connect(
         };
         sleep(duration());
         tries += 1;
+        let res = unsafe { res_init() };
+        debug!("res_init returned {}", res);
     }
 }
 

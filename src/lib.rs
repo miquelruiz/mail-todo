@@ -1,4 +1,5 @@
 extern crate imap;
+extern crate libc;
 extern crate notify_rust;
 extern crate openssl;
 extern crate regex;
