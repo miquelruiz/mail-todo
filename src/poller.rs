@@ -88,12 +88,16 @@ fn poll_imap<T: Read+Write>(
 }
 
 fn get_connection(creds: &Creds) -> Result<Client<SslStream<TcpStream>>> {
+    debug!("Building ssl stuff");
     let ssl = SslContext::new(SslMethod::Sslv23)?;
+    debug!("Connecting");
     let mut imap = Client::secure_connect(
         (&creds.host[..], creds.port),
         ssl,
     )?;
+    debug!("Logging in");
     imap.login(&creds.user, &creds.pass)?;
+    debug!("Done!");
     Ok(imap)
 }
 
