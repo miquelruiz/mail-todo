@@ -11,7 +11,7 @@ glib = "*"
 #imap = "0.0.6"
 imap = { git = "https://github.com/miquelruiz/rust-imap.git" }
 log = "*"
-openssl = "*"
+openssl = "0.7.14"
 regex = "*"
 notify-rust = "*"
 
