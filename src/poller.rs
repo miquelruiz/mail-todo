@@ -6,7 +6,7 @@ use ::{Creds, Message, parser, Result, Task};
 use std::collections::HashSet;
 use std::net::TcpStream;
 use std::io::{Read, Write};
-use std::sync::mpsc::{Receiver, Sender};
+use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 use std::thread::sleep;
 use std::time::Duration;
@@ -56,11 +56,23 @@ fn poll_imap<T: Read+Write>(
 ) -> bool {
     let mut reconnect = true;
     let wake2 = wake.clone();
-    let _ = thread::Builder::new()
+    let (awake_tx, awake_rx) = channel::<Message>();
+
+    debug!("Spawning awakener thread");
+    let handler = thread::Builder::new()
         .name(format!("awakener{}", tries))
         .spawn(move || loop {
+            if let Ok(m) = awake_rx.try_recv() { match m {
+                Message::Quit => {
+                    debug!("awakener{} exits", tries);
+                    break;
+                },
+                m => panic!("Awakener received unexpected message! {:?}", m)
+            }}
+
             debug!("Sending awake message from awakener{}", tries);
             let _ = wake2.send(Message::Awake);
+
             sleep(duration());
         })
         .unwrap();
@@ -85,8 +97,20 @@ fn poll_imap<T: Read+Write>(
                 break;
             },
         },
-        m => panic!("Received unexpected message! {:?}", m)
+        m => panic!("Poller received unexpected message! {:?}", m)
     }}
+
+    // Stop the awakener only if we are going to reconnect so it's not leaked
+    if reconnect {
+        // We are exiting, so tell our awakener to exit too
+        if let Err(e) = awake_tx.send(Message::Quit) {
+            warn!("awakener{} thread possibly leaked! {:?}", tries, e);
+        }
+        debug!("Waiting for awakener thread to finish");
+        if let Err(e) = handler.join() {
+            error!("awakener{} panic'ed: {:?}", tries, e)
+        }
+    }
     info!("Exiting poll_imap");
     reconnect
 }
