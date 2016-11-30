@@ -86,7 +86,7 @@ fn poll_imap<T: Read+Write>(
         Message::Delete(uid) => {
             delete_task(&mut imap, uid);
             let _ = wake.send(Message::Awake);
-        }
+        },
         Message::Awake => match get_tasks(&mut imap) {
             Ok(tasks) => { if let Err(e) = ui.send(Message::Tasks(tasks)) {
                 panic!("Main thread receiver deallocated: {}", e);
