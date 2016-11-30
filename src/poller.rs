@@ -20,6 +20,7 @@ pub fn connect(
     wake: Sender<Message>,
     rx: Receiver<Message>
 ) {
+    let mut tries = 0;
     loop {
         info!("Trying {}:{}... ", creds.host, creds.port);
         if let Err(e) = ui.send(Message::NotConnected) {
@@ -34,7 +35,7 @@ pub fn connect(
                 if let Err(e) = ui.send(Message::Connected) {
                     error!("Couldn't set the status: {}", e);
                 }
-                if !poll_imap(&mut imap, &ui, &wake, &rx) {
+                if !poll_imap(&mut imap, &ui, &wake, &rx, tries) {
                     info!("Exiting from poller thread");
                     break;
                 }
@@ -42,6 +43,7 @@ pub fn connect(
             },
         };
         sleep(duration());
+        tries += 1;
     }
 }
 
@@ -49,13 +51,15 @@ fn poll_imap<T: Read+Write>(
     mut imap: &mut Client<T>,
     ui: &Sender<Message>,
     wake: &Sender<Message>,
-    rx: &Receiver<Message>
+    rx: &Receiver<Message>,
+    tries: u32
 ) -> bool {
     let mut reconnect = true;
     let wake2 = wake.clone();
     let _ = thread::Builder::new()
-        .name("awakener".to_string())
+        .name(format!("awakener{}", tries))
         .spawn(move || loop {
+            debug!("Sending awake message from awakener{}", tries);
             let _ = wake2.send(Message::Awake);
             sleep(duration());
         })
@@ -102,6 +106,7 @@ fn get_connection(creds: &Creds) -> Result<Client<SslStream<TcpStream>>> {
 }
 
 fn get_tasks<T: Read+Write>(mut imap: &mut Client<T>) -> Result<HashSet<Task>> {
+    debug!("Getting tasks");
     let mut tasks: HashSet<Task> = HashSet::new();
     let mbox = imap.select(::MBOX)?;
     for seqn in 1..mbox.exists+1 {
@@ -110,7 +115,7 @@ fn get_tasks<T: Read+Write>(mut imap: &mut Client<T>) -> Result<HashSet<Task>> {
         let subj = get_subj(imap, seq)?;
         tasks.insert(Task {title: subj, uid: uid});
     }
-    debug!("{:?}", tasks);
+    debug!("Retrieved tasks: {:?}", tasks);
     Ok(tasks)
 }
 
