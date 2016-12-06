@@ -31,7 +31,6 @@ pub fn connect(
         match get_connection(&creds) {
             Err(e) => {
                 error!("Error getting connection: {:?}", e);
-                sleep(duration());
             },
             Ok(mut imap) => {
                 if let Err(e) = ui.send(Message::Connected) {
@@ -41,7 +40,12 @@ pub fn connect(
                     info!("Exiting from poller thread");
                     break;
                 }
-                info!("Coming back from polling");
+
+                // Set the status as soon as we exit polling
+                info!("Setting as disconnected");
+                if let Err(e) = ui.send(Message::NotConnected) {
+                    error!("Couldn't set the status: {}", e);
+                }
             },
         };
         sleep(duration());
@@ -113,7 +117,8 @@ fn poll_imap<T: Read+Write>(
             error!("awakener{} panic'ed: {:?}", tries, e)
         }
     }
-    info!("Exiting poll_imap");
+
+    info!("Exiting poll_imap. Reconnect? {:?}", reconnect);
     reconnect
 }
 
