@@ -1,3 +1,5 @@
+extern crate libresolv_sys;
+
 use imap::client::Client;
 use openssl::ssl::{SslContext, SslMethod, SslStream};
 
@@ -116,6 +118,17 @@ fn poll_imap<T: Read+Write>(
 }
 
 fn get_connection(creds: &Creds) -> Result<Client<SslStream<TcpStream>>> {
+    // Here be dragons.
+    // Whenever the thread tries to resolve the mail server domain it will
+    // cache the domain name servers used to resolve that. If it happens to try
+    // before getting a working internet connection, those nameservers will
+    // point to localhost, and surprise surprise, localhost is probably not a
+    // dns server.
+    // This call ensures that the resolver config is reloaded every single time
+    // before trying to connect. That ensures the thread is able to come back
+    // from death.
+    let _ = unsafe { libresolv_sys::__res_init() };
+
     debug!("Building ssl stuff");
     let ssl = SslContext::new(SslMethod::Sslv23)?;
     debug!("Connecting");
