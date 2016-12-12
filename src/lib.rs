@@ -10,10 +10,10 @@ pub mod notifier;
 pub mod parser;
 pub mod poller;
 
-pub const CONF: &'static str = "miquelruiz.net";
+pub const CONF: &'static str = ".mutt/miquelruiz.net";
+pub const DB:   &'static str = ".mail-todo/todo.db";
 pub const ICON: &'static str = "task-due";
 pub const MBOX: &'static str = "ToDo";
-pub const MUTT: &'static str = ".mutt";
 pub const NAME: &'static str = "Mail-todo";
 pub const NOTIF_TIMEOUT: i32 = 5000;
 pub const SLEEP: u64 = 60;

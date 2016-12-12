@@ -10,7 +10,6 @@ pub fn get_credentials() -> Result<Creds> {
     let mut path = env::home_dir().ok_or("Can't get home dir")?;
 
     // Build path to config file
-    path.push(::MUTT);
     path.push(::CONF);
 
     let content = read_config_file(path.as_path())?;
@@ -35,4 +34,11 @@ fn read_config_file(path: &Path) -> Result<String> {
     let mut file = File::open(&path)?;
     file.read_to_string(&mut content)?;
     Ok(content)
+}
+
+pub fn get_db_path() -> Result<String> {
+    let mut path = env::home_dir().ok_or("Can't get home dir")?;
+    path.push(::DB);
+    let path_str = path.to_str().ok_or("Can't convert path into string")?;
+    Ok(path_str.to_string())
 }
