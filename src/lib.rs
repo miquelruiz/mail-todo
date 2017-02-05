@@ -1,3 +1,4 @@
+extern crate email;
 extern crate imap;
 extern crate notify_rust;
 extern crate openssl;

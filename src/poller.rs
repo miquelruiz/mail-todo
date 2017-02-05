@@ -1,5 +1,6 @@
 extern crate libresolv_sys;
 
+use email;
 use imap::client::Client;
 use openssl::ssl::{SslContext, SslMethod, SslStream};
 
@@ -176,8 +177,22 @@ fn get_subj<T: Read+Write>(imap: &mut Client<T>, seq: &str) -> Result<String> {
         headers = headers + &line;
     }
 
+    let mut subject = String::new();
     let subj = parser::extract_info(r"Subject: (.*)\r", &headers)?;
-    Ok(subj)
+    for word in subj.split_whitespace() {
+        match email::rfc2047::decode_rfc2047(&word) {
+            Some(decoded) => {
+                info!("Shit decoded: {:?}", word);
+                subject.push_str(&decoded);
+            },
+            None => {
+                subject.push_str(word)
+            },
+        }
+        subject.push(' ');
+    }
+
+    Ok(subject)
 }
 
 fn delete_task<T: Read+Write>(imap: &mut Client<T>, uid: u64) {
