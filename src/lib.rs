@@ -11,7 +11,6 @@ pub mod notifier;
 pub mod parser;
 pub mod poller;
 
-pub const CONF: &'static str = ".mutt/miquelruiz.net";
 pub const DB:   &'static str = ".mail-todo/todo.db";
 pub const ICON: &'static str = "task-due";
 pub const MBOX: &'static str = "ToDo";

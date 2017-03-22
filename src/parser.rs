@@ -6,11 +6,11 @@ use std::io::prelude::*;
 use std::fs::File;
 use std::path::Path;
 
-pub fn get_credentials() -> Result<Creds> {
+pub fn get_credentials(conf: String) -> Result<Creds> {
     let mut path = env::home_dir().ok_or("Can't get home dir")?;
 
     // Build path to config file
-    path.push(::CONF);
+    path.push(conf);
 
     let content = read_config_file(path.as_path())?;
     let user = extract_info(r"set imap_user=(\w*)", &content)?;

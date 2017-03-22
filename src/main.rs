@@ -1,3 +1,6 @@
+extern crate getopts;
+use getopts::Options;
+
 extern crate gtk;
 use gtk::prelude::*;
 use gtk::{
@@ -22,6 +25,7 @@ use mail_todo::{Message, notifier, parser, poller, Task};
 
 use std::cell::RefCell;
 use std::collections::HashSet;
+use std::env;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 
@@ -32,6 +36,15 @@ thread_local!(
 );
 
 fn main() {
+    let args: Vec<String> = env::args().collect();
+    let mut opts = Options::new();
+    opts.reqopt("c", "config", "Path to the config file", "CONFIG");
+    let matches = match opts.parse(&args[1..]) {
+        Ok(m) => m,
+        Err(f) => panic!(f.to_string()),
+    };
+    let conf = matches.opt_str("c").unwrap();
+
     if gtk::init().is_err() {
         panic!("Failed to initialize GTK");
     }
@@ -71,7 +84,7 @@ fn main() {
     });
     glib::timeout_add(100, receive);
 
-    let creds = parser::get_credentials().unwrap();
+    let creds = parser::get_credentials(conf).unwrap();
     let child = thread::Builder::new()
         .name("poller".to_string())
         .spawn(move || {
