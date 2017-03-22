@@ -10,11 +10,10 @@ env_logger = "*"
 glib = "*"
 email = "*"
 getopts = "*"
-#imap = "0.0.6"
-imap = { git = "https://github.com/miquelruiz/rust-imap.git" }
+imap = "0.1.0"
 log = "*"
 libresolv-sys = { path = "libresolv-sys", version = "0.1.0" }
-openssl = "0.7.14"
+openssl = "0.8.3"
 regex = "*"
 notify-rust = "*"
 
