@@ -1,0 +1,10 @@
+[Unit]
+Description=Mail ToDo
+After=network.target dbus.service
+
+[Service]
+ExecStart=/home/mruiz/bin/mail-todo --config /home/mruiz/.mutt/miquelruiz.net
+Restart=always
+
+[Install]
+WantedBy=default.target
