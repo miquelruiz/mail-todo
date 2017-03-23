@@ -161,8 +161,10 @@ fn get_tasks<T: Read+Write>(
     for seqn in 1..mbox.exists+1 {
         let seq = &seqn.to_string();
         let uid = get_uid(imap, seq)?;
-        let subj = get_subj(imap, seq)?;
-        tasks.insert(Task {title: subj, uid: uid});
+        match get_subj(imap, seq) {
+            Ok(s) => tasks.insert(Task {title: s, uid: uid}),
+            Err(e) => { error!("{:?}", e); true },
+        };
     }
     debug!("Retrieved tasks: {:?}", tasks);
     Ok(tasks)
@@ -184,7 +186,8 @@ fn get_subj<T: Read+Write>(imap: &mut Client<T>, seq: &str) -> Result<String> {
     }
 
     let mut subject = String::new();
-    let subj = parser::extract_info(r"Subject: (.*)\r", &headers)?;
+    debug!("{:?}", headers);
+    let subj = parser::extract_info(r"Subject: ?(.*)\r", &headers)?;
     for word in subj.split_whitespace() {
         match email::rfc2047::decode_rfc2047(&word) {
             Some(decoded) => {
