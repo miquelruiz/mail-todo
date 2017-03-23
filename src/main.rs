@@ -118,12 +118,13 @@ fn update_list(
     let lb: ListBox = ui.get_object("content").unwrap();
     let mut notify = false;
 
-    // titles will serve to keep track of what's in the UI and what's not
+    // "titles" will serve to keep track of what's in the UI and what's not
     let mut titles: HashSet<&str> = HashSet::new();
     for t in tasks.iter() {
         titles.insert(&t.title);
     }
 
+    // loop over the UI rows to see what needs to be deleted, and delete it
     for wrow in lb.get_children() {
         let row: ListBoxRow = wrow.downcast().unwrap();
         let wcheck = row.get_child().unwrap();
@@ -141,9 +142,9 @@ fn update_list(
         }
     }
 
-    // loop over the tasks because the contain the uid's
+    // add whatever task is missing to the interface
     for task in tasks.iter() {
-        // If the task is not in the titles, means we've already seen it in
+        // If the task is not in "titles", means we've already seen it in
         // the interface
         if !titles.contains::<str>(&task.title) {
             continue
@@ -156,7 +157,7 @@ fn update_list(
         // copy here the uid so the closure does not reference the task
         let uid = task.uid;
         let tx = tx.clone();
-        info!("Storing uid {} in destroy closure", uid);
+        debug!("Storing uid {} in destroy closure", uid);
         check.connect_destroy(move |_|
             if let Err(e) = tx.send(Message::Delete(uid)) {
                 error!("Couldn't send delete message {}: {}", uid, e);

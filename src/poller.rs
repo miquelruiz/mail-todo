@@ -34,6 +34,7 @@ pub fn connect(
                 error!("Error getting connection: {:?}", e);
             },
             Ok(mut imap) => {
+                info!("Connected!");
                 if let Err(e) = ui.send(Message::Connected) {
                     error!("Couldn't set the status: {}", e);
                 }
