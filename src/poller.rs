@@ -19,6 +19,7 @@ fn duration() -> Duration { Duration::new(::SLEEP, 0) }
 
 pub fn connect(
     creds: Creds,
+    folder: &String,
     ui: Sender<Message>,
     wake: Sender<Message>,
     rx: Receiver<Message>
@@ -38,7 +39,7 @@ pub fn connect(
                 if let Err(e) = ui.send(Message::Connected) {
                     error!("Couldn't set the status: {}", e);
                 }
-                if !poll_imap(&mut imap, &ui, &wake, &rx, tries) {
+                if !poll_imap(&mut imap, &folder, &ui, &wake, &rx, tries) {
                     info!("Exiting from poller thread");
                     break;
                 }
@@ -57,6 +58,7 @@ pub fn connect(
 
 fn poll_imap<T: Read+Write>(
     mut imap: &mut Client<T>,
+    folder: &String,
     ui: &Sender<Message>,
     wake: &Sender<Message>,
     rx: &Receiver<Message>,
@@ -95,7 +97,7 @@ fn poll_imap<T: Read+Write>(
             delete_task(&mut imap, uid);
             let _ = wake.send(Message::Awake);
         },
-        Message::Awake => match get_tasks(&mut imap) {
+        Message::Awake => match get_tasks(&mut imap, &folder) {
             Ok(tasks) => { if let Err(e) = ui.send(Message::Tasks(tasks)) {
                 panic!("Main thread receiver deallocated: {}", e);
             }},
@@ -149,10 +151,13 @@ fn get_connection(creds: &Creds) -> Result<Client<SslStream<TcpStream>>> {
     Ok(imap)
 }
 
-fn get_tasks<T: Read+Write>(mut imap: &mut Client<T>) -> Result<HashSet<Task>> {
+fn get_tasks<T: Read+Write>(
+    mut imap: &mut Client<T>,
+    folder: &String,
+) -> Result<HashSet<Task>> {
     debug!("Getting tasks");
     let mut tasks: HashSet<Task> = HashSet::new();
-    let mbox = imap.select(::MBOX)?;
+    let mbox = imap.select(folder)?;
     for seqn in 1..mbox.exists+1 {
         let seq = &seqn.to_string();
         let uid = get_uid(imap, seq)?;

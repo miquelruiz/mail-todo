@@ -42,6 +42,7 @@ fn main() {
     let mut opts = Options::new();
     opts.optflag("h", "help", "print this help menu");
     opts.reqopt("c", "config", "Path to the config file", "CONFIG");
+    opts.optopt("f", "folder", "IMAP folder to monitor", "FOLDER");
 
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
@@ -55,6 +56,11 @@ fn main() {
         return;
     }
     let conf = matches.opt_str("c").unwrap();
+    let folder = if matches.opt_present("f") {
+        matches.opt_str("f").unwrap()
+    } else {
+        String::from(mail_todo::MBOX)
+    };
 
     if gtk::init().is_err() {
         panic!("Failed to initialize GTK");
@@ -99,7 +105,7 @@ fn main() {
     let child = thread::Builder::new()
         .name("poller".to_string())
         .spawn(move || {
-            poller::connect(creds, ui_tx, imap_tx, imap_rx);
+            poller::connect(creds, &folder, ui_tx, imap_tx, imap_rx);
         }).unwrap();
 
     gtk::main();
