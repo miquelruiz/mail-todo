@@ -37,12 +37,23 @@ thread_local!(
 
 fn main() {
     let args: Vec<String> = env::args().collect();
+    let program = args[0].clone();
+
     let mut opts = Options::new();
+    opts.optflag("h", "help", "print this help menu");
     opts.reqopt("c", "config", "Path to the config file", "CONFIG");
+
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
-        Err(f) => panic!(f.to_string()),
+        Err(f) => {
+            println!("{}", f.to_string());
+            return;
+        }
     };
+    if matches.opt_present("h") {
+        print_usage(&program, opts);
+        return;
+    }
     let conf = matches.opt_str("c").unwrap();
 
     if gtk::init().is_err() {
@@ -203,4 +214,9 @@ fn destroy_checked() {
             }
         }
     });
+}
+
+fn print_usage(program: &str, opts: Options) {
+    let brief = format!("Usage: {} [options]", program);
+    print!("{}", opts.usage(&brief));
 }
