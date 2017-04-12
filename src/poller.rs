@@ -187,7 +187,7 @@ fn get_subj<T: Read+Write>(imap: &mut Client<T>, seq: &str) -> Result<String> {
 
     let mut subject = String::new();
     debug!("{:?}", headers);
-    let subj = parser::extract_info(r"Subject: ?(.*)\r", &headers)?;
+    let subj = parser::extract_info(r"\nSubject: ?(.*?)\r", &headers)?;
     for word in subj.split_whitespace() {
         match email::rfc2047::decode_rfc2047(&word) {
             Some(decoded) => {
