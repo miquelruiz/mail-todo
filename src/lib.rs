@@ -26,6 +26,7 @@ pub enum Message {
     Connected,
     Delete(u64),
     NotConnected,
+    Sleep,
     Tasks(std::collections::HashSet<Task>),
     Quit,
 }

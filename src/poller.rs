@@ -9,8 +9,7 @@ use ::{Creds, Message, parser, Result, Task};
 use std::collections::HashSet;
 use std::net::TcpStream;
 use std::io::{Read, Write};
-use std::sync::mpsc::{channel, Receiver, Sender};
-use std::thread;
+use std::sync::mpsc::{Receiver, Sender};
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -24,7 +23,6 @@ pub fn connect(
     wake: Sender<Message>,
     rx: Receiver<Message>
 ) {
-    let mut tries = 0;
     loop {
         info!("Trying {}:{}... ", creds.host, creds.port);
         if let Err(e) = ui.send(Message::NotConnected) {
@@ -39,7 +37,7 @@ pub fn connect(
                 if let Err(e) = ui.send(Message::Connected) {
                     error!("Couldn't set the status: {}", e);
                 }
-                if !poll_imap(&mut imap, &folder, &ui, &wake, &rx, tries) {
+                if !poll_imap(&mut imap, &folder, &ui, &wake, &rx) {
                     info!("Exiting from poller thread");
                     break;
                 }
@@ -52,7 +50,6 @@ pub fn connect(
             },
         };
         sleep(duration());
-        tries += 1;
     }
 }
 
@@ -62,30 +59,12 @@ fn poll_imap<T: Read+Write>(
     ui: &Sender<Message>,
     wake: &Sender<Message>,
     rx: &Receiver<Message>,
-    tries: u32
 ) -> bool {
     let mut reconnect = true;
-    let wake2 = wake.clone();
-    let (awake_tx, awake_rx) = channel::<Message>();
+    let mut slept = 0;
 
-    debug!("Spawning awakener thread");
-    let handler = thread::Builder::new()
-        .name(format!("awakener{}", tries))
-        .spawn(move || loop {
-            if let Ok(m) = awake_rx.try_recv() { match m {
-                Message::Quit => {
-                    debug!("awakener{} exits", tries);
-                    break;
-                },
-                m => panic!("Awakener received unexpected message! {:?}", m)
-            }}
-
-            debug!("Sending awake message from awakener{}", tries);
-            let _ = wake2.send(Message::Awake);
-
-            sleep(duration());
-        })
-        .unwrap();
+    debug!("Sending first awake message");
+    let _ = wake.send(Message::Awake);
 
     while let Ok(m) = rx.recv() { match m {
         Message::Quit => {
@@ -97,30 +76,33 @@ fn poll_imap<T: Read+Write>(
             delete_task(&mut imap, uid);
             let _ = wake.send(Message::Awake);
         },
-        Message::Awake => match get_tasks(&mut imap, &folder) {
-            Ok(tasks) => { if let Err(e) = ui.send(Message::Tasks(tasks)) {
-                panic!("Main thread receiver deallocated: {}", e);
-            }},
-            Err(e) => {
-                error!("Error getting tasks: {}", e);
-                // If something goes wrong, crap out and force reconnection
-                break;
-            },
+        Message::Awake => {
+            match get_tasks(&mut imap, &folder) {
+                Ok(tasks) => { if let Err(e) = ui.send(Message::Tasks(tasks)) {
+                    panic!("Main thread receiver deallocated: {}", e);
+                }},
+                Err(e) => {
+                    error!("Error getting tasks: {}", e);
+                    // If something goes wrong, crap out and force reconnection
+                    break;
+                },
+            };
+            debug!("Sending sleep message from awake");
+            let _ = wake.send(Message::Sleep);
+            slept = 0;
         },
+        Message::Sleep => {
+            sleep(Duration::new(1, 0));
+            slept += 1;
+            if slept >= ::SLEEP {
+                let _ = wake.send(Message::Awake);
+                slept = 0;
+            } else {
+                let _ = wake.send(Message::Sleep);
+            }
+        }
         m => panic!("Poller received unexpected message! {:?}", m)
     }}
-
-    // Stop the awakener only if we are going to reconnect so it's not leaked
-    if reconnect {
-        // We are exiting, so tell our awakener to exit too
-        if let Err(e) = awake_tx.send(Message::Quit) {
-            warn!("awakener{} thread possibly leaked! {:?}", tries, e);
-        }
-        debug!("Waiting for awakener thread to finish");
-        if let Err(e) = handler.join() {
-            error!("awakener{} panic'ed: {:?}", tries, e)
-        }
-    }
 
     info!("Exiting poll_imap. Reconnect? {:?}", reconnect);
     reconnect
@@ -187,7 +169,6 @@ fn get_subj<T: Read+Write>(imap: &mut Client<T>, seq: &str) -> Result<String> {
     }
 
     let mut subject = String::new();
-    debug!("{:?}", headers);
     let subj = parser::extract_info(r"\nSubject: ?(.*?)\r", &headers)?;
     for word in subj.split_whitespace() {
         match email::rfc2047::decode_rfc2047(&word) {
