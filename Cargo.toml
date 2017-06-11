@@ -10,10 +10,10 @@ env_logger = "*"
 glib = "*"
 email = "*"
 getopts = "*"
-imap = "0.1.0"
+imap = "0.3.1"
 log = "*"
 libresolv-sys = { path = "libresolv-sys", version = "0.1.0" }
-openssl = "0.8.3"
+openssl = "*"
 regex = "*"
 notify-rust = "*"
 

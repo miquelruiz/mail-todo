@@ -25,8 +25,8 @@ pub fn get_credentials(conf: String) -> Result<Creds> {
 pub fn extract_info(pattern: &str, text: &str) -> Result<String> {
     let re = Regex::new(pattern)?;
     let cap = re.captures(text).ok_or("Couldn't match")?;
-    let xtr = cap.at(1).ok_or("No captures")?;
-    Ok(xtr.to_string())
+    let xtr = cap.get(1).ok_or("No captures")?;
+    Ok(xtr.as_str().to_string())
 }
 
 fn read_config_file(path: &Path) -> Result<String> {

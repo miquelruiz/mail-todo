@@ -2,7 +2,7 @@ extern crate libresolv_sys;
 
 use email;
 use imap::client::Client;
-use openssl::ssl::{SslContext, SslMethod, SslStream};
+use openssl::ssl::{SslConnectorBuilder, SslMethod, SslStream};
 
 use ::{Creds, Message, parser, Result, Task};
 
@@ -139,10 +139,11 @@ fn get_connection(creds: &Creds) -> Result<Client<SslStream<TcpStream>>> {
     let _ = unsafe { libresolv_sys::__res_init() };
 
     debug!("Building ssl stuff");
-    let ssl = SslContext::new(SslMethod::Sslv23)?;
+    let ssl = SslConnectorBuilder::new(SslMethod::tls())?.build();
     debug!("Connecting");
     let mut imap = Client::secure_connect(
         (&creds.host[..], creds.port),
+        &creds.host[..],
         ssl,
     )?;
     debug!("Logging in");
