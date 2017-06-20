@@ -18,7 +18,7 @@ fn duration() -> Duration { Duration::new(::SLEEP, 0) }
 
 pub fn connect(
     creds: Creds,
-    folder: &String,
+    folder: &str,
     ui: Sender<Message>,
     wake: Sender<Message>,
     rx: Receiver<Message>
@@ -55,7 +55,7 @@ pub fn connect(
 
 fn poll_imap<T: Read+Write>(
     mut imap: &mut Client<T>,
-    folder: &String,
+    folder: &str,
     ui: &Sender<Message>,
     wake: &Sender<Message>,
     rx: &Receiver<Message>,
@@ -136,7 +136,7 @@ fn get_connection(creds: &Creds) -> Result<Client<SslStream<TcpStream>>> {
 
 fn get_tasks<T: Read+Write>(
     mut imap: &mut Client<T>,
-    folder: &String,
+    folder: &str,
 ) -> Result<HashSet<Task>> {
     debug!("Getting tasks");
     let mut tasks: HashSet<Task> = HashSet::new();
