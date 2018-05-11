@@ -54,7 +54,7 @@ pub fn connect(
 }
 
 fn poll_imap<T: Read+Write>(
-    mut imap: &mut Client<T>,
+    imap: &mut Client<T>,
     folder: &str,
     ui: &Sender<Message>,
     wake: &Sender<Message>,
@@ -73,11 +73,11 @@ fn poll_imap<T: Read+Write>(
             break;
         },
         Message::Delete(uid) => {
-            delete_task(&mut imap, uid);
+            delete_task(imap, uid);
             let _ = wake.send(Message::Awake);
         },
         Message::Awake => {
-            match get_tasks(&mut imap, &folder) {
+            match get_tasks(imap, &folder) {
                 Ok(tasks) => { if let Err(e) = ui.send(Message::Tasks(tasks)) {
                     panic!("Main thread receiver deallocated: {}", e);
                 }},
@@ -135,7 +135,7 @@ fn get_connection(creds: &Creds) -> Result<Client<SslStream<TcpStream>>> {
 }
 
 fn get_tasks<T: Read+Write>(
-    mut imap: &mut Client<T>,
+    imap: &mut Client<T>,
     folder: &str,
 ) -> Result<HashSet<Task>> {
     debug!("Getting tasks");
