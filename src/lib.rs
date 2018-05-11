@@ -10,6 +10,7 @@ extern crate log;
 pub mod notifier;
 pub mod parser;
 pub mod poller;
+pub mod backup;
 
 pub const DB:   &'static str = ".mail-todo/todo.db";
 pub const ICON: &'static str = "task-due";

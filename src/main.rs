@@ -21,7 +21,7 @@ extern crate log;
 extern crate env_logger;
 
 extern crate mail_todo;
-use mail_todo::{Message, notifier, parser, poller, Task};
+use mail_todo::{backup, Message, notifier, parser, poller, Task};
 
 use std::cell::RefCell;
 use std::collections::HashSet;
@@ -70,17 +70,20 @@ fn main() {
         panic!("Couldn't initialize logger: {:?}", e);
     }
 
-    let (imap_tx, imap_rx) = channel::<Message>();
-    let (ui_tx, ui_rx)     = channel::<Message>();
+    let (backup_tx, backup_rx) = channel::<Message>();
+    let (imap_tx, imap_rx)     = channel::<Message>();
+    let (ui_tx, ui_rx)         = channel::<Message>();
 
     let ui = include_str!("../resources/ui.glade");
     let builder = Builder::new_from_string(ui);
 
-    let stop = imap_tx.clone();
+    let stop_poller = imap_tx.clone();
+    let stop_backup = backup_tx.clone();
     let window: Window = builder.get_object("window").unwrap();
     window.connect_delete_event(move |_, _| {
         info!("Closing...");
-        let _ = stop.send(Message::Quit).unwrap();
+        let _ = stop_poller.send(Message::Quit).unwrap();
+        let _ = stop_backup.send(Message::Quit).unwrap();
         gtk::main_quit();
         Inhibit(false)
     });
@@ -102,15 +105,22 @@ fn main() {
     glib::timeout_add(100, receive);
 
     let creds = parser::get_credentials(conf).unwrap();
-    let child = thread::Builder::new()
+    let poller = thread::Builder::new()
         .name("poller".to_string())
         .spawn(move || {
             poller::connect(creds, &folder, ui_tx, imap_tx, imap_rx);
         }).unwrap();
 
+    let backup_thread = thread::Builder::new()
+        .name("backup".to_string())
+        .spawn(move || {
+            backup::start(backup_tx, backup_rx);
+        }).unwrap();
+
     gtk::main();
     info!("Waiting for all threads to finish");
-    let _ = child.join();
+    let _ = poller.join();
+    let _ = backup_thread.join();
 }
 
 fn receive() -> glib::Continue {
