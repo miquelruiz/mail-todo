@@ -24,6 +24,7 @@ pub type Result<T> = std::result::Result<T, Box<std::error::Error>>;
 #[derive(Debug)]
 pub enum Message {
     Awake,
+    Connect,
     Connected,
     Delete(u64),
     NotConnected,

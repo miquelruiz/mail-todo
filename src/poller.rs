@@ -14,8 +14,6 @@ use std::thread::sleep;
 use std::time::Duration;
 
 
-fn duration() -> Duration { Duration::new(::SLEEP, 0) }
-
 pub fn start(
     creds: Creds,
     folder: &str,
@@ -26,8 +24,8 @@ pub fn start(
     let mut slept = 0;
     let mut imap: Option<Client<SslStream<TcpStream>>> = None;
 
-    debug!("Sending first awake message");
-    let _ = wake.send(Message::Awake);
+    debug!("Sending 'connect' message");
+    let _ = wake.send(Message::Connect);
 
     while let Ok(m) = rx.recv() { match m {
         Message::Quit => {
@@ -40,26 +38,29 @@ pub fn start(
         },
         Message::Awake => if let Some(ref mut imap) = imap {
             match get_tasks(imap, &folder) {
-                Ok(tasks) => { if let Err(e) = ui.send(Message::Tasks(tasks)) {
-                    panic!("Main thread receiver deallocated: {}", e);
-                }},
+                Ok(tasks) => {
+                    if let Err(e) = ui.send(Message::Tasks(tasks)) {
+                        panic!("Main thread receiver deallocated: {}", e);
+                    }
+                    debug!("Sending sleep message from awake");
+                    let _ = wake.send(Message::Sleep);
+                    slept = 0;
+                },
                 Err(e) => {
                     error!("Error getting tasks: {}", e);
-                    // If something goes wrong, crap out and force reconnection
-                    break;
+                    // Crap out and reconnect
+                    let _ = wake.send(Message::Connect);
                 },
             };
-            debug!("Sending sleep message from awake");
-            let _ = wake.send(Message::Sleep);
-            slept = 0;
-        } else {
+        },
+        Message::Connect => {
+            info!("Setting as disconnected");
+            if let Err(e) = ui.send(Message::NotConnected) {
+                error!("Couldn't set the status: {}", e);
+            }
+
             imap = match get_connection(&creds) {
                 Err(e) => {
-                    info!("Setting as disconnected");
-                    if let Err(e) = ui.send(Message::NotConnected) {
-                        error!("Couldn't set the status: {}", e);
-                    }
-
                     error!("Error getting connection: {:?}", e);
                     let _ = wake.send(Message::Sleep);
                     None
@@ -69,7 +70,6 @@ pub fn start(
                     if let Err(e) = ui.send(Message::Connected) {
                         error!("Couldn't set the status: {}", e);
                     }
-
                     let _ = wake.send(Message::Awake);
                     Some(imap)
                 },
