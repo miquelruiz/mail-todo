@@ -52,6 +52,8 @@ pub fn start(
                     let _ = wake.send(Message::Connect);
                 },
             };
+        } else {
+            let _ = wake.send(Message::Connect);
         },
         Message::Connect => {
             info!("Setting as disconnected");
