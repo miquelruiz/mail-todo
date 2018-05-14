@@ -105,10 +105,10 @@ fn main() {
     glib::timeout_add(100, receive);
 
     let creds = parser::get_credentials(conf).unwrap();
-    let poller = thread::Builder::new()
+    let poller_thread = thread::Builder::new()
         .name("poller".to_string())
         .spawn(move || {
-            poller::connect(creds, &folder, ui_tx, imap_tx, imap_rx);
+            poller::start(creds, &folder, ui_tx, imap_tx, imap_rx);
         }).unwrap();
 
     let backup_thread = thread::Builder::new()
@@ -119,7 +119,7 @@ fn main() {
 
     gtk::main();
     info!("Waiting for all threads to finish");
-    let _ = poller.join();
+    let _ = poller_thread.join();
     let _ = backup_thread.join();
 }
 

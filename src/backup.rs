@@ -1,5 +1,3 @@
-extern crate libresolv_sys;
-
 use ::{Message};
 
 use std::sync::mpsc::{Receiver, Sender};

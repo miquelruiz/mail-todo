@@ -16,67 +16,29 @@ use std::time::Duration;
 
 fn duration() -> Duration { Duration::new(::SLEEP, 0) }
 
-pub fn connect(
+pub fn start(
     creds: Creds,
     folder: &str,
     ui: Sender<Message>,
     wake: Sender<Message>,
-    rx: Receiver<Message>
+    rx: Receiver<Message>,
 ) {
-    loop {
-        info!("Trying {}:{}... ", creds.host, creds.port);
-        if let Err(e) = ui.send(Message::NotConnected) {
-            error!("Couldn't set the status: {}", e);
-        }
-        match get_connection(&creds) {
-            Err(e) => {
-                error!("Error getting connection: {:?}", e);
-            },
-            Ok(mut imap) => {
-                info!("Connected!");
-                if let Err(e) = ui.send(Message::Connected) {
-                    error!("Couldn't set the status: {}", e);
-                }
-                if !poll_imap(&mut imap, &folder, &ui, &wake, &rx) {
-                    info!("Exiting from poller thread");
-                    break;
-                }
-
-                // Set the status as soon as we exit polling
-                info!("Setting as disconnected");
-                if let Err(e) = ui.send(Message::NotConnected) {
-                    error!("Couldn't set the status: {}", e);
-                }
-            },
-        };
-        sleep(duration());
-    }
-}
-
-fn poll_imap<T: Read+Write>(
-    imap: &mut Client<T>,
-    folder: &str,
-    ui: &Sender<Message>,
-    wake: &Sender<Message>,
-    rx: &Receiver<Message>,
-) -> bool {
-    let mut reconnect = true;
     let mut slept = 0;
+    let mut imap: Option<Client<SslStream<TcpStream>>> = None;
 
     debug!("Sending first awake message");
     let _ = wake.send(Message::Awake);
 
     while let Ok(m) = rx.recv() { match m {
         Message::Quit => {
-            reconnect = false;
-            let _ = imap.logout();
+            imap.and_then(|mut imap| { imap.logout().ok() });
             break;
         },
-        Message::Delete(uid) => {
+        Message::Delete(uid) => if let Some(ref mut imap) = imap {
             delete_task(imap, uid);
             let _ = wake.send(Message::Awake);
         },
-        Message::Awake => {
+        Message::Awake => if let Some(ref mut imap) = imap {
             match get_tasks(imap, &folder) {
                 Ok(tasks) => { if let Err(e) = ui.send(Message::Tasks(tasks)) {
                     panic!("Main thread receiver deallocated: {}", e);
@@ -90,6 +52,28 @@ fn poll_imap<T: Read+Write>(
             debug!("Sending sleep message from awake");
             let _ = wake.send(Message::Sleep);
             slept = 0;
+        } else {
+            imap = match get_connection(&creds) {
+                Err(e) => {
+                    info!("Setting as disconnected");
+                    if let Err(e) = ui.send(Message::NotConnected) {
+                        error!("Couldn't set the status: {}", e);
+                    }
+
+                    error!("Error getting connection: {:?}", e);
+                    let _ = wake.send(Message::Sleep);
+                    None
+                },
+                Ok(mut imap) => {
+                    info!("Connected!");
+                    if let Err(e) = ui.send(Message::Connected) {
+                        error!("Couldn't set the status: {}", e);
+                    }
+
+                    let _ = wake.send(Message::Awake);
+                    Some(imap)
+                },
+            }
         },
         Message::Sleep => {
             sleep(Duration::new(1, 0));
@@ -103,9 +87,7 @@ fn poll_imap<T: Read+Write>(
         }
         m => panic!("Poller received unexpected message! {:?}", m)
     }}
-
-    info!("Exiting poll_imap. Reconnect? {:?}", reconnect);
-    reconnect
+    info!("Exiting poller thread");
 }
 
 fn get_connection(creds: &Creds) -> Result<Client<SslStream<TcpStream>>> {
