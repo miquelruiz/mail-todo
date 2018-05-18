@@ -6,16 +6,16 @@ authors = [ "Miquel Ruiz <mruiz@cpan.org>" ]
 
 [dependencies]
 
-env_logger = "*"
-glib = "*"
 email = "*"
+env_logger = "*"
 getopts = "*"
+glib = "*"
 imap = "0.3.1"
-log = "*"
 libresolv-sys = { path = "libresolv-sys", version = "0.1.0" }
+log = "*"
+notify-rust = "*"
 openssl = "*"
 regex = "*"
-notify-rust = "*"
 
 [dependencies.gtk]
 version = "*"
