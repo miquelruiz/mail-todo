@@ -1,10 +1,10 @@
 use regex::Regex;
 
-use ::{Creds, Result};
 use std::env;
-use std::io::prelude::*;
 use std::fs::File;
+use std::io::prelude::*;
 use std::path::Path;
+use {Creds, Result};
 
 pub fn get_credentials(conf: String) -> Result<Creds> {
     let mut path = env::home_dir().ok_or("Can't get home dir")?;
@@ -19,7 +19,12 @@ pub fn get_credentials(conf: String) -> Result<Creds> {
     let port = extract_info(r"set folder=imaps?://.+:(\d+)", &content)?;
     let port = port.parse()?;
 
-    Ok(Creds {user: user, pass: pass, host: host, port: port})
+    Ok(Creds {
+        user: user,
+        pass: pass,
+        host: host,
+        port: port,
+    })
 }
 
 pub fn extract_info(pattern: &str, text: &str) -> Result<String> {
@@ -39,6 +44,7 @@ fn read_config_file(path: &Path) -> Result<String> {
 pub fn get_db_path() -> Result<String> {
     let mut path = env::home_dir().ok_or("Can't get home dir")?;
     path.push(::DB);
-    let path_str = path.to_str().ok_or("Can't convert path into string")?;
+    let path_str = path.to_str()
+        .ok_or("Can't convert path into string")?;
     Ok(path_str.to_string())
 }

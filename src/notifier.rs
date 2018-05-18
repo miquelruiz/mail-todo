@@ -6,5 +6,8 @@ pub fn notify(body: &str, icon: &str, timeout: i32) {
         .body(body)
         .icon(icon)
         .timeout(timeout)
-        .show() { error!("Couldn't show notification: {:?}", e) }
+        .show()
+    {
+        error!("Couldn't show notification: {:?}", e)
+    }
 }

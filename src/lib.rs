@@ -7,12 +7,12 @@ extern crate regex;
 #[macro_use]
 extern crate log;
 
+pub mod backup;
 pub mod notifier;
 pub mod parser;
 pub mod poller;
-pub mod backup;
 
-pub const DB:   &'static str = ".mail-todo/todo.db";
+pub const DB: &'static str = ".mail-todo/todo.db";
 pub const ICON: &'static str = "task-due";
 pub const MBOX: &'static str = "ToDo";
 pub const NAME: &'static str = "Mail-todo";

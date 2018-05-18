@@ -3,16 +3,8 @@ use getopts::Options;
 
 extern crate gtk;
 use gtk::prelude::*;
-use gtk::{
-    Builder,
-    Button,
-    CheckButton,
-    ListBox,
-    ListBoxRow,
-    Statusbar,
-    StatusIcon,
-    Window,
-};
+use gtk::{Builder, Button, CheckButton, ListBox, ListBoxRow, StatusIcon,
+          Statusbar, Window};
 
 extern crate glib;
 
@@ -21,7 +13,7 @@ extern crate log;
 extern crate env_logger;
 
 extern crate mail_todo;
-use mail_todo::{backup, Message, notifier, parser, poller, Task};
+use mail_todo::{backup, notifier, parser, poller, Message, Task};
 
 use std::cell::RefCell;
 use std::collections::HashSet;
@@ -41,8 +33,18 @@ fn main() {
 
     let mut opts = Options::new();
     opts.optflag("h", "help", "print this help menu");
-    opts.reqopt("c", "config", "Path to the config file", "CONFIG");
-    opts.optopt("f", "folder", "IMAP folder to monitor", "FOLDER");
+    opts.reqopt(
+        "c",
+        "config",
+        "Path to the config file",
+        "CONFIG",
+    );
+    opts.optopt(
+        "f",
+        "folder",
+        "IMAP folder to monitor",
+        "FOLDER",
+    );
 
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
@@ -71,8 +73,8 @@ fn main() {
     }
 
     let (backup_tx, backup_rx) = channel::<Message>();
-    let (imap_tx, imap_rx)     = channel::<Message>();
-    let (ui_tx, ui_rx)         = channel::<Message>();
+    let (imap_tx, imap_rx) = channel::<Message>();
+    let (ui_tx, ui_rx) = channel::<Message>();
 
     let ui = include_str!("../resources/ui.glade");
     let builder = Builder::new_from_string(ui);
@@ -109,13 +111,15 @@ fn main() {
         .name("poller".to_string())
         .spawn(move || {
             poller::start(creds, &folder, ui_tx, imap_tx, imap_rx);
-        }).unwrap();
+        })
+        .unwrap();
 
     let backup_thread = thread::Builder::new()
         .name("backup".to_string())
         .spawn(move || {
             backup::start(backup_tx, backup_rx);
-        }).unwrap();
+        })
+        .unwrap();
 
     gtk::main();
     info!("Waiting for all threads to finish");
@@ -126,22 +130,22 @@ fn main() {
 fn receive() -> glib::Continue {
     GLOBAL.with(|global| {
         if let Some((ref ui, ref tx, ref rx)) = *global.borrow_mut() {
-            while let Ok(msg) = rx.try_recv() { match msg {
-                Message::Tasks(ref tasks) => update_list(ui, tasks, tx),
-                Message::Connected => update_status(ui, "Connected", true),
-                Message::NotConnected => update_status(ui, "Connecting...", false),
-                m => panic!("Main thread got unexpected message! {:?}", m),
-            }}
+            while let Ok(msg) = rx.try_recv() {
+                match msg {
+                    Message::Tasks(ref tasks) => update_list(ui, tasks, tx),
+                    Message::Connected => update_status(ui, "Connected", true),
+                    Message::NotConnected => {
+                        update_status(ui, "Connecting...", false)
+                    }
+                    m => panic!("Main thread got unexpected message! {:?}", m),
+                }
+            }
         }
     });
     glib::Continue(true)
 }
 
-fn update_list(
-    ui: &Builder,
-    tasks: &HashSet<Task>,
-    tx: &Sender<Message>,
-) {
+fn update_list(ui: &Builder, tasks: &HashSet<Task>, tx: &Sender<Message>) {
     let lb: ListBox = ui.get_object("content").unwrap();
     let mut notify = false;
 
@@ -158,7 +162,7 @@ fn update_list(
         let check: CheckButton = wcheck.downcast().unwrap();
         let label = check.get_label().unwrap();
 
-        if !titles.contains::<str>(&label)  {
+        if !titles.contains::<str>(&label) {
             // If the row is not in the titles, needs to be deleted
             notify = true;
             row.destroy();
@@ -174,7 +178,7 @@ fn update_list(
         // If the task is not in "titles", means we've already seen it in
         // the interface
         if !titles.contains::<str>(&task.title) {
-            continue
+            continue;
         }
 
         notify = true;
@@ -185,11 +189,11 @@ fn update_list(
         let uid = task.uid;
         let tx = tx.clone();
         debug!("Storing uid {} in destroy closure", uid);
-        check.connect_destroy(move |_|
+        check.connect_destroy(move |_| {
             if let Err(e) = tx.send(Message::Delete(uid)) {
                 error!("Couldn't send delete message {}: {}", uid, e);
             }
-        );
+        });
     }
 
     lb.show_all();
@@ -204,12 +208,12 @@ fn update_list(
 }
 
 fn update_status(ui: &Builder, status: &'static str, enable_btn: bool) {
-    ui.get_object("status").and_then(|b: Statusbar| {
-        Some(b.push(b.get_context_id("status"), status))
-    });
-    ui.get_object("delete").and_then(
-        |d: Button| Some(d.set_sensitive(enable_btn))
-    );
+    ui.get_object("status")
+        .and_then(|b: Statusbar| {
+            Some(b.push(b.get_context_id("status"), status))
+        });
+    ui.get_object("delete")
+        .and_then(|d: Button| Some(d.set_sensitive(enable_btn)));
 }
 
 fn destroy_checked() {
