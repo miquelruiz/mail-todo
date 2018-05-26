@@ -64,8 +64,8 @@ fn main() {
         String::from(mail_todo::MBOX)
     };
 
-    if gtk::init().is_err() {
-        panic!("Failed to initialize GTK");
+    if let Err(e) = gtk::init() {
+        panic!("Failed to initialize GTK: {:?}", e);
     }
 
     if let Err(e) = env_logger::init() {
