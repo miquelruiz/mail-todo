@@ -26,3 +26,8 @@ systemctl --user daemon-reload
 systemctl --user enable mail-todo
 systemctl --user start mail-todo
 ```
+
+## To build from Ubuntu 18.04
+```sh
+apt install build-essential libssl-dev libgtk-3-dev libdbus-1-dev
+```
