@@ -1,7 +1,7 @@
 extern crate email;
 extern crate imap;
+extern crate native_tls;
 extern crate notify_rust;
-extern crate openssl;
 extern crate regex;
 
 #[macro_use]

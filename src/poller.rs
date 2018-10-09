@@ -1,14 +1,17 @@
 extern crate libresolv_sys;
+extern crate native_tls;
 
 use email;
-use imap::client::Client;
-use openssl::ssl::{SslConnectorBuilder, SslMethod, SslStream};
+use imap;
+use imap::client::Session;
+use self::native_tls::{TlsConnector, TlsStream};
 
 use {parser, Creds, Message, Result, Task};
 
 use std::collections::HashSet;
 use std::io::{Read, Write};
 use std::net::TcpStream;
+use std::str;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread::sleep;
 use std::time::Duration;
@@ -21,7 +24,8 @@ pub fn start(
     rx: Receiver<Message>,
 ) {
     let mut slept = 0;
-    let mut imap: Option<Client<SslStream<TcpStream>>> = None;
+    //let mut imap: Option<Client<TlsStream<TcpStream>>> = None;
+    let mut imap: Option<Session<TlsStream<TcpStream>>> = None;
 
     debug!("Sending 'connect' message");
     let _ = wake.send(Message::Connect);
@@ -93,7 +97,7 @@ pub fn start(
     info!("Exiting poller thread");
 }
 
-fn get_connection(creds: &Creds) -> Result<Client<SslStream<TcpStream>>> {
+fn get_connection(creds: &Creds) -> Result<Session<TlsStream<TcpStream>>> {
     // Here be dragons.
     // Whenever the thread tries to resolve the mail server domain it will
     // cache the domain name servers used to resolve that. If it happens to try
@@ -106,21 +110,21 @@ fn get_connection(creds: &Creds) -> Result<Client<SslStream<TcpStream>>> {
     let _ = unsafe { libresolv_sys::__res_init() };
 
     debug!("Building ssl stuff");
-    let ssl = SslConnectorBuilder::new(SslMethod::tls())?.build();
+    let ssl = TlsConnector::builder().build()?;
     debug!("Connecting");
-    let mut imap = Client::secure_connect(
+    let imap = imap::client::secure_connect(
         (&creds.host[..], creds.port),
         &creds.host[..],
-        ssl,
+        &ssl,
     )?;
     debug!("Logging in");
-    imap.login(&creds.user, &creds.pass)?;
+    let session = imap.login(&creds.user, &creds.pass).unwrap();
     debug!("Done!");
-    Ok(imap)
+    Ok(session)
 }
 
 fn get_tasks<T: Read + Write>(
-    imap: &mut Client<T>,
+    imap: &mut Session<T>,
     folder: &str,
 ) -> Result<HashSet<Task>> {
     debug!("Getting tasks");
@@ -144,22 +148,22 @@ fn get_tasks<T: Read + Write>(
     Ok(tasks)
 }
 
-fn get_uid<T: Read + Write>(imap: &mut Client<T>, seq: &str) -> Result<u64> {
+fn get_uid<T: Read + Write>(imap: &mut Session<T>, seq: &str) -> Result<u64> {
     let resp = imap.fetch(seq, "uid")?;
-    let uid = parser::extract_info(r".* FETCH \(UID (\d+)\)", &resp[0])?;
-    let uid = uid.parse()?;
+    let uid = resp[0].uid.unwrap() as u64;
     Ok(uid)
 }
 
 fn get_subj<T: Read + Write>(
-    imap: &mut Client<T>,
+    imap: &mut Session<T>,
     seq: &str,
 ) -> Result<String> {
-    let lines = imap.fetch(seq, "body[header]")?;
+    let fetch = imap.fetch(seq, "body[header]")?;
+    let lines = fetch.into_iter();
 
     let mut headers = String::new();
     for line in lines {
-        headers = headers + &line;
+        headers = headers + str::from_utf8(line.body().unwrap()).unwrap();
     }
 
     let mut subject = String::new();
@@ -178,7 +182,7 @@ fn get_subj<T: Read + Write>(
     Ok(subject)
 }
 
-fn delete_task<T: Read + Write>(imap: &mut Client<T>, uid: u64) {
+fn delete_task<T: Read + Write>(imap: &mut Session<T>, uid: u64) {
     let _ = imap.uid_store(&format!("{}", uid), "+FLAGS (\\Deleted)");
     let _ = imap.expunge();
 }

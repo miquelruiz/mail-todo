@@ -68,9 +68,7 @@ fn main() {
         panic!("Failed to initialize GTK: {:?}", e);
     }
 
-    if let Err(e) = env_logger::init() {
-        panic!("Couldn't initialize logger: {:?}", e);
-    }
+    env_logger::init();
 
     let (backup_tx, backup_rx) = channel::<Message>();
     let (imap_tx, imap_rx) = channel::<Message>();

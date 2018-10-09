@@ -6,15 +6,16 @@ authors = [ "Miquel Ruiz <mruiz@cpan.org>" ]
 
 [dependencies]
 
+dirs = "*"
 email = "*"
 env_logger = "*"
 getopts = "*"
 glib = "*"
-imap = "0.3.1"
+imap = { git = "https://github.com/mattnenterprise/rust-imap" }
 libresolv-sys = { path = "libresolv-sys", version = "0.1.0" }
 log = "*"
 notify-rust = "*"
-openssl = "*"
+native-tls = "*"
 regex = "*"
 
 [dependencies.gtk]

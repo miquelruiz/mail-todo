@@ -1,13 +1,14 @@
+extern crate dirs;
+
 use regex::Regex;
 
-use std::env;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 use {Creds, Result};
 
 pub fn get_credentials(conf: String) -> Result<Creds> {
-    let mut path = env::home_dir().ok_or("Can't get home dir")?;
+    let mut path = dirs::home_dir().ok_or("Can't get home dir")?;
 
     // Build path to config file
     path.push(conf);
@@ -42,7 +43,7 @@ fn read_config_file(path: &Path) -> Result<String> {
 }
 
 pub fn get_db_path() -> Result<String> {
-    let mut path = env::home_dir().ok_or("Can't get home dir")?;
+    let mut path = dirs::home_dir().ok_or("Can't get home dir")?;
     path.push(::DB);
     let path_str = path.to_str()
         .ok_or("Can't convert path into string")?;
